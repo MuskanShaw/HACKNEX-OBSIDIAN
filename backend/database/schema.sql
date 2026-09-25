@@ -504,4 +504,3 @@ CREATE POLICY "Authenticated Users Delete Storefront Assets" ON storage.objects
         AND (auth.role() = 'authenticated' OR auth.role() = 'service_role')
     );
 
-
