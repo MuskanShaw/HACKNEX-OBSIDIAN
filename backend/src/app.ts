@@ -48,6 +48,7 @@ export function createApp(): Express {
     .filter(Boolean);
 
   const defaultOrigins = [
+    'https://hacknex-obsidian06.onrender.com',
     'https://obsidian-alpha-wheat.vercel.app',
     'http://localhost:5173',
     'http://127.0.0.1:5173',
@@ -69,15 +70,17 @@ export function createApp(): Express {
         const normalizedOrigin = requestOrigin.replace(/\/$/, '');
         const isExplicitlyAllowed = allowedOrigins.includes(normalizedOrigin);
 
-        let isVercelDomain = false;
+        let isTrustedDomain = false;
         try {
           const parsedHost = new URL(requestOrigin).hostname;
-          isVercelDomain = parsedHost.endsWith('.vercel.app');
+          isTrustedDomain =
+            parsedHost.endsWith('.vercel.app') ||
+            parsedHost.endsWith('.onrender.com');
         } catch {
-          isVercelDomain = false;
+          isTrustedDomain = false;
         }
 
-        if (isExplicitlyAllowed || isVercelDomain) {
+        if (isExplicitlyAllowed || isTrustedDomain) {
           callback(null, true);
         } else {
           callback(new Error(`Origin ${requestOrigin} not allowed by CORS`));
