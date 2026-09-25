@@ -2356,6 +2356,20 @@ async function runTests() {
         }
       }
     });
+
+    // CASE G: getUserById is strictly read-only and never performs automatic writes
+    await assert('CASE G: dataStore.getUserById is strictly read-only and does not create database records', async () => {
+      const nonExistentId = 'f9999999-9999-9999-9999-999999999999';
+      const result = await dataStore.getUserById(nonExistentId);
+      if (result !== null) {
+        throw new Error(`Expected null for non-existent user, got ${JSON.stringify(result)}`);
+      }
+      // Verify subsequent lookup still returns null (proving no record was silently created)
+      const secondCheck = await dataStore.getUserById(nonExistentId);
+      if (secondCheck !== null) {
+        throw new Error(`Second lookup expected null, but record was unexpectedly created`);
+      }
+    });
   } finally {
     server!.close();
   }
