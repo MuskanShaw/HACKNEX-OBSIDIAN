@@ -107,8 +107,18 @@ export function createApp(): Express {
   // General rate limiter
   app.use('/api', generalRateLimiter);
 
-  // Health and System Check
-  app.get('/health', async (_req, res) => {
+  // Lightweight Health & System Check (Render/Vercel/Liveness monitoring - no DB load)
+  app.get(['/health', '/api/health'], (_req, res) => {
+    res.status(200).json({
+      status: 'ok',
+      service: 'obsidian-backend',
+      timestamp: new Date().toISOString(),
+      environment: env.NODE_ENV,
+    });
+  });
+
+  // Dedicated Database Health Check (Explicit diagnostics only)
+  app.get(['/health/db', '/api/health/db'], async (_req, res) => {
     let dbStatus = 'connected';
     if (isLiveSupabaseConfigured()) {
       try {
@@ -120,10 +130,12 @@ export function createApp(): Express {
       } catch {
         dbStatus = 'disconnected';
       }
+    } else {
+      dbStatus = 'memory_mode';
     }
 
     res.status(200).json({
-      status: 'ok',
+      status: dbStatus === 'connected' || dbStatus === 'memory_mode' ? 'ok' : 'degraded',
       service: 'obsidian-backend',
       database: dbStatus,
       timestamp: new Date().toISOString(),

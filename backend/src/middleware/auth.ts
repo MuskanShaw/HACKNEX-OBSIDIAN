@@ -1,7 +1,6 @@
 import { Response, NextFunction } from 'express';
 import { env } from '../config/env.js';
 import { AuthenticatedRequest } from '../types/index.js';
-import { dataStore } from '../services/dataStore.js';
 import { authenticateSupabaseToken, sanitizeToken } from '../services/supabaseAuth.js';
 
 /**
@@ -12,7 +11,7 @@ import { authenticateSupabaseToken, sanitizeToken } from '../services/supabaseAu
  * or `?token=<SUPABASE_ACCESS_TOKEN>` for Server-Sent Events (SSE) connections.
  * 
  * Verifies token via Supabase Auth and binds authenticated Supabase user UUID (auth.uid()).
- * Never trusts frontend-supplied identity headers or email matching.
+ * Never writes to database on authentication verification.
  */
 export const requireAuth = async (
   req: AuthenticatedRequest,
@@ -72,16 +71,17 @@ export const requireAuth = async (
       (authUser.user_metadata?.name as string) ||
       null;
     const avatarUrl = (authUser.user_metadata?.avatar_url as string) || null;
+    const role = (authUser.user_metadata?.role as string) || 'merchant';
 
-    // Synchronize user profile into PostgreSQL
-    const dbUser = await dataStore.upsertUser({
+    // Directly bind verified currentUser in memory (NO DB WRITE)
+    req.currentUser = {
       id: userId,
       email,
       full_name: fullName,
       avatar_url: avatarUrl,
-    });
+      role,
+    };
 
-    req.currentUser = dbUser;
     req.auth = {
       payload: {
         sub: userId,

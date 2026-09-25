@@ -123,25 +123,21 @@ export const dataStore = {
         updated_at: new Date().toISOString(),
       };
 
-      // 1. Synchronize to public.profiles (primary per schema DDL)
-      try {
-        await client.from('profiles').upsert(payload, { onConflict: 'id' });
-      } catch (err: any) {
-        // Table might not exist yet if migration hasn't been executed
-      }
-
-      // 2. Synchronize to public.users (for backwards compatibility)
+      // Synchronize to public.profiles (canonical profile table per schema DDL)
       try {
         const { data, error } = await client
-          .from('users')
+          .from('profiles')
           .upsert(payload, { onConflict: 'id' })
           .select()
           .single();
-        if (!error && data) {
+
+        if (error) {
+          console.warn(`[DataStore] Supabase profile sync warning for user ${effectiveId}: ${error.message} (code: ${error.code})`);
+        } else if (data) {
           return data as UserRecord;
         }
       } catch (err: any) {
-        // ignore
+        console.warn(`[DataStore] Exception during profile upsert for user ${effectiveId}: ${err?.message || err}`);
       }
 
       return {
@@ -149,6 +145,7 @@ export const dataStore = {
         email: normalizedEmail,
         full_name: user.full_name || null,
         avatar_url: user.avatar_url || null,
+        role: effectiveRole,
       };
     }
 
@@ -189,31 +186,29 @@ export const dataStore = {
   async getUserById(id: string): Promise<UserRecord | null> {
     if (isLiveSupabaseConfigured()) {
       const client = getSupabaseClient();
-      // Check profiles first
+      // 1. Query canonical public.profiles table
       try {
         const { data, error } = await client.from('profiles').select('*').eq('id', id).maybeSingle();
         if (!error && data) return data as UserRecord;
-      } catch {}
+        if (error && error.code !== 'PGRST116') {
+          console.warn(`[DataStore] Supabase error in getUserById(${id}): ${error.message}`);
+        }
+      } catch (err: any) {
+        console.warn(`[DataStore] Exception in getUserById(${id}): ${err?.message || err}`);
+      }
 
-      // Check users table
-      try {
-        const { data, error } = await client.from('users').select('*').eq('id', id).maybeSingle();
-        if (!error && data) return data as UserRecord;
-      } catch {}
-
-      // Fallback: Check Supabase Auth admin
+      // 2. Fallback: Check Supabase Auth admin identity without triggering automatic DB writes
       try {
         const { data, error } = await client.auth.admin.getUserById(id);
         if (!error && data?.user) {
           const authUser = data.user;
-          const userRec: UserRecord = {
+          return {
             id: authUser.id,
             email: authUser.email || '',
             full_name: (authUser.user_metadata?.full_name as string) || (authUser.user_metadata?.name as string) || null,
             avatar_url: (authUser.user_metadata?.avatar_url as string) || null,
+            role: (authUser.user_metadata?.role as string) || 'merchant',
           };
-          await this.upsertUser(userRec);
-          return userRec;
         }
       } catch {}
 
@@ -230,33 +225,16 @@ export const dataStore = {
     const normalized = email.toLowerCase().trim();
     if (isLiveSupabaseConfigured()) {
       const client = getSupabaseClient();
+      // Query canonical public.profiles table
       try {
         const { data, error } = await client.from('profiles').select('*').eq('email', normalized).maybeSingle();
         if (!error && data) return data as UserRecord;
-      } catch {}
-
-      try {
-        const { data, error } = await client.from('users').select('*').eq('email', normalized).maybeSingle();
-        if (!error && data) return data as UserRecord;
-      } catch {}
-
-      // Fallback: Check Supabase Auth admin list
-      try {
-        const { data, error } = await client.auth.admin.listUsers();
-        if (!error && data?.users) {
-          const found = data.users.find((u) => u.email?.toLowerCase().trim() === normalized);
-          if (found) {
-            const userRec: UserRecord = {
-              id: found.id,
-              email: found.email || normalized,
-              full_name: (found.user_metadata?.full_name as string) || (found.user_metadata?.name as string) || null,
-              avatar_url: (found.user_metadata?.avatar_url as string) || null,
-            };
-            await this.upsertUser(userRec);
-            return userRec;
-          }
+        if (error && error.code !== 'PGRST116') {
+          console.warn(`[DataStore] Supabase error in getUserByEmail: ${error.message}`);
         }
-      } catch {}
+      } catch (err: any) {
+        console.warn(`[DataStore] Exception in getUserByEmail: ${err?.message || err}`);
+      }
 
       return null;
     }

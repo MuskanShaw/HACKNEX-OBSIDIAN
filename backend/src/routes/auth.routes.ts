@@ -331,13 +331,32 @@ router.get('/me', requireAuth, (req: AuthenticatedRequest, res: Response) => {
 
 /**
  * POST /api/auth/sync
- * Resolves Supabase Auth user to database user profile
+ * Explicit endpoint to synchronize Supabase Auth user profile into public.profiles
  */
-router.post('/sync', requireAuth, (req: AuthenticatedRequest, res: Response) => {
-  res.status(200).json({
-    message: 'User synchronized successfully',
-    user: req.currentUser,
-  });
+router.post('/sync', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const user = req.currentUser;
+    let syncedUser = user;
+    if (user) {
+      syncedUser = await dataStore.upsertUser({
+        id: user.id,
+        email: user.email,
+        full_name: user.full_name,
+        avatar_url: user.avatar_url,
+        role: user.role,
+      });
+      req.currentUser = syncedUser;
+    }
+    res.status(200).json({
+      message: 'User synchronized successfully',
+      user: syncedUser,
+    });
+  } catch (err: any) {
+    res.status(500).json({
+      error: 'Sync Error',
+      message: err.message || 'An error occurred while synchronizing user profile.',
+    });
+  }
 });
 
 const updatePasswordSchema = z.object({
