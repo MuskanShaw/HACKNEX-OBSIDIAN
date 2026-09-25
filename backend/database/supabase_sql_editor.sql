@@ -175,18 +175,8 @@ BEGIN
       AND owner_id IS NULL;
 END $$;
 
--- Enforce UNIQUE(owner_id) constraint safely
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint WHERE conname = 'stores_owner_id_unique'
-    ) THEN
-        ALTER TABLE public.stores ADD CONSTRAINT stores_owner_id_unique UNIQUE (owner_id);
-    END IF;
-EXCEPTION
-    WHEN OTHERS THEN
-        RAISE NOTICE 'stores_owner_id_unique constraint already applied or handled: %', SQLERRM;
-END $$;
+-- Remove UNIQUE(owner_id) constraint so multiple stores per user are allowed and store updates don't collide
+ALTER TABLE public.stores DROP CONSTRAINT IF EXISTS stores_owner_id_unique;
 
 -- Automatic synchronization trigger to keep owner_id and user_id in sync for backwards compatibility
 CREATE OR REPLACE FUNCTION public.sync_store_ownership()
