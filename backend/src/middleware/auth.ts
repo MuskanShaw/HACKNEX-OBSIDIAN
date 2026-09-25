@@ -1,6 +1,6 @@
 import { Response, NextFunction } from 'express';
 import { env } from '../config/env.js';
-import { AuthenticatedRequest } from '../types/index.js';
+import { AuthenticatedRequest, AuthenticatedUser } from '../types/index.js';
 import { authenticateSupabaseToken, sanitizeToken } from '../services/supabaseAuth.js';
 
 /**
@@ -11,7 +11,7 @@ import { authenticateSupabaseToken, sanitizeToken } from '../services/supabaseAu
  * or `?token=<SUPABASE_ACCESS_TOKEN>` for Server-Sent Events (SSE) connections.
  * 
  * Verifies token via Supabase Auth and binds authenticated Supabase user UUID (auth.uid()).
- * Never writes to database on authentication verification.
+ * Never trusts frontend-supplied identity headers or email matching.
  */
 export const requireAuth = async (
   req: AuthenticatedRequest,
@@ -71,17 +71,17 @@ export const requireAuth = async (
       (authUser.user_metadata?.name as string) ||
       null;
     const avatarUrl = (authUser.user_metadata?.avatar_url as string) || null;
-    const role = (authUser.user_metadata?.role as string) || 'merchant';
 
-    // Directly bind verified currentUser in memory (NO DB WRITE)
-    req.currentUser = {
+    // Attach authenticated user information without writing to database on normal requests
+    const currentUser: AuthenticatedUser = {
       id: userId,
       email,
       full_name: fullName,
       avatar_url: avatarUrl,
-      role,
+      role: authUser.role || 'merchant',
     };
 
+    req.currentUser = currentUser;
     req.auth = {
       payload: {
         sub: userId,

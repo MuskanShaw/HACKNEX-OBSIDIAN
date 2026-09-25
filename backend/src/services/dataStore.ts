@@ -123,21 +123,23 @@ export const dataStore = {
         updated_at: new Date().toISOString(),
       };
 
-      // Synchronize to public.profiles (canonical profile table per schema DDL)
+      // Synchronize canonical public.profiles table
       try {
-        const { data, error } = await client
+        const { data, error: profileError } = await client
           .from('profiles')
           .upsert(payload, { onConflict: 'id' })
           .select()
-          .single();
+          .maybeSingle();
 
-        if (error) {
-          console.warn(`[DataStore] Supabase profile sync warning for user ${effectiveId}: ${error.message} (code: ${error.code})`);
+        if (profileError) {
+          console.warn(
+            `[DATASTORE] profiles upsert error: ${profileError.message} (code: ${profileError.code || 'UNKNOWN'})`
+          );
         } else if (data) {
           return data as UserRecord;
         }
       } catch (err: any) {
-        console.warn(`[DataStore] Exception during profile upsert for user ${effectiveId}: ${err?.message || err}`);
+        console.warn(`[DATASTORE] profiles upsert exception: ${err.message}`);
       }
 
       return {
@@ -189,28 +191,33 @@ export const dataStore = {
       // 1. Query canonical public.profiles table
       try {
         const { data, error } = await client.from('profiles').select('*').eq('id', id).maybeSingle();
-        if (!error && data) return data as UserRecord;
-        if (error && error.code !== 'PGRST116') {
-          console.warn(`[DataStore] Supabase error in getUserById(${id}): ${error.message}`);
+        if (error) {
+          console.warn(`[DATASTORE] getUserById profiles error: ${error.message} (code: ${error.code || 'UNKNOWN'})`);
+        } else if (data) {
+          return data as UserRecord;
         }
       } catch (err: any) {
-        console.warn(`[DataStore] Exception in getUserById(${id}): ${err?.message || err}`);
+        console.warn(`[DATASTORE] getUserById profiles exception: ${err.message}`);
       }
 
-      // 2. Fallback: Check Supabase Auth admin identity without triggering automatic DB writes
+      // 2. Safe Fallback: Supabase Auth identity without database write or users table query
       try {
         const { data, error } = await client.auth.admin.getUserById(id);
-        if (!error && data?.user) {
+        if (error) {
+          console.warn(`[DATASTORE] getUserById auth.admin error: ${error.message}`);
+        } else if (data?.user) {
           const authUser = data.user;
           return {
             id: authUser.id,
             email: authUser.email || '',
             full_name: (authUser.user_metadata?.full_name as string) || (authUser.user_metadata?.name as string) || null,
             avatar_url: (authUser.user_metadata?.avatar_url as string) || null,
-            role: (authUser.user_metadata?.role as string) || 'merchant',
+            role: authUser.role || 'merchant',
           };
         }
-      } catch {}
+      } catch (err: any) {
+        console.warn(`[DATASTORE] getUserById auth.admin exception: ${err.message}`);
+      }
 
       return null;
     }
@@ -228,12 +235,13 @@ export const dataStore = {
       // Query canonical public.profiles table
       try {
         const { data, error } = await client.from('profiles').select('*').eq('email', normalized).maybeSingle();
-        if (!error && data) return data as UserRecord;
-        if (error && error.code !== 'PGRST116') {
-          console.warn(`[DataStore] Supabase error in getUserByEmail: ${error.message}`);
+        if (error) {
+          console.warn(`[DATASTORE] getUserByEmail profiles error: ${error.message} (code: ${error.code || 'UNKNOWN'})`);
+        } else if (data) {
+          return data as UserRecord;
         }
       } catch (err: any) {
-        console.warn(`[DataStore] Exception in getUserByEmail: ${err?.message || err}`);
+        console.warn(`[DATASTORE] getUserByEmail profiles exception: ${err.message}`);
       }
 
       return null;

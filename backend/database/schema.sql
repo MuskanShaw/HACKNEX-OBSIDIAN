@@ -73,25 +73,6 @@ BEGIN
         -- Never abort auth transaction if profile insert fails
     END;
 
-    BEGIN
-        INSERT INTO public.users (id, email, full_name, avatar_url, role)
-        VALUES (
-            NEW.id,
-            COALESCE(NEW.email, ''),
-            COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'name', split_part(COALESCE(NEW.email, ''), '@', 1)),
-            NEW.raw_user_meta_data->>'avatar_url',
-            COALESCE(NEW.raw_user_meta_data->>'role', 'merchant')
-        )
-        ON CONFLICT (id) DO UPDATE
-        SET email = EXCLUDED.email,
-            full_name = COALESCE(EXCLUDED.full_name, public.users.full_name),
-            avatar_url = COALESCE(EXCLUDED.avatar_url, public.users.avatar_url),
-            role = COALESCE(EXCLUDED.role, public.users.role, 'merchant'),
-            updated_at = NOW();
-    EXCEPTION WHEN OTHERS THEN
-        -- Never abort auth transaction if user insert fails
-    END;
-
     RETURN NEW;
 END;
 $$;
@@ -522,4 +503,5 @@ CREATE POLICY "Authenticated Users Delete Storefront Assets" ON storage.objects
         bucket_id IN ('storefront-assets', 'store-assets')
         AND (auth.role() = 'authenticated' OR auth.role() = 'service_role')
     );
+
 

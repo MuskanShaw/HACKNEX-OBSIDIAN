@@ -331,25 +331,30 @@ router.get('/me', requireAuth, (req: AuthenticatedRequest, res: Response) => {
 
 /**
  * POST /api/auth/sync
- * Explicit endpoint to synchronize Supabase Auth user profile into public.profiles
+ * Resolves Supabase Auth user to database user profile
  */
 router.post('/sync', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const user = req.currentUser;
-    let syncedUser = user;
-    if (user) {
-      syncedUser = await dataStore.upsertUser({
-        id: user.id,
-        email: user.email,
-        full_name: user.full_name,
-        avatar_url: user.avatar_url,
-        role: user.role,
+    if (!user) {
+      res.status(401).json({
+        error: 'Unauthorized',
+        message: 'No authenticated user to synchronize.',
       });
-      req.currentUser = syncedUser;
+      return;
     }
+
+    const dbUser = await dataStore.upsertUser({
+      id: user.id,
+      email: user.email,
+      full_name: user.full_name || null,
+      avatar_url: user.avatar_url || null,
+      role: user.role || 'merchant',
+    });
+
     res.status(200).json({
       message: 'User synchronized successfully',
-      user: syncedUser,
+      user: dbUser,
     });
   } catch (err: any) {
     res.status(500).json({
