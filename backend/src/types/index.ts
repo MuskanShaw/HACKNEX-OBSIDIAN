@@ -3,7 +3,6 @@ import { Request } from 'express';
 export interface UserRecord {
   id: string;
   email: string;
-  auth0_sub?: string | null;
   full_name?: string | null;
   avatar_url?: string | null;
   role?: string | null;
@@ -168,7 +167,6 @@ export interface StoreTemplate {
 export interface AuthenticatedUser {
   id: string;
   email: string;
-  auth0_sub?: string | null;
   full_name?: string | null;
   avatar_url?: string | null;
   role?: string | null;

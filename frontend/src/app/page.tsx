@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
+import { supabase } from "@/lib/supabase";
 import "./login.css";
 
 interface LocalUser {
@@ -67,16 +68,52 @@ export default function LoginPage() {
     setShowToast(true);
   };
 
-  // Check existing session on mount from localStorage
+  // Check existing Supabase session on mount
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem("obsidian_session");
-      if (stored) {
-        setActiveSessionUser(JSON.parse(stored));
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        const u = session.user;
+        const loggedUser: LocalUser = {
+          id: u.id,
+          email: u.email || "",
+          full_name: (u.user_metadata?.full_name as string) || (u.user_metadata?.name as string) || u.email?.split("@")[0] || "Merchant",
+        };
+        localStorage.setItem("obsidian_session", JSON.stringify(loggedUser));
+        localStorage.setItem("obsidian_token", session.access_token);
+        setActiveSessionUser(loggedUser);
+      } else {
+        try {
+          const stored = localStorage.getItem("obsidian_session");
+          if (stored) {
+            setActiveSessionUser(JSON.parse(stored));
+          }
+        } catch {
+          // ignore
+        }
       }
-    } catch {
-      // ignore
-    }
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        const u = session.user;
+        const loggedUser: LocalUser = {
+          id: u.id,
+          email: u.email || "",
+          full_name: (u.user_metadata?.full_name as string) || (u.user_metadata?.name as string) || u.email?.split("@")[0] || "Merchant",
+        };
+        localStorage.setItem("obsidian_session", JSON.stringify(loggedUser));
+        localStorage.setItem("obsidian_token", session.access_token);
+        setActiveSessionUser(loggedUser);
+      } else if (_event === "SIGNED_OUT") {
+        localStorage.removeItem("obsidian_session");
+        localStorage.removeItem("obsidian_token");
+        setActiveSessionUser(null);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
@@ -249,14 +286,19 @@ export default function LoginPage() {
     // Handle Password Reset / Recovery
     if (isForgotPasswordMode) {
       setLoading(true);
+      try {
+        await supabase.auth.resetPasswordForEmail(trimmedEmail, {
+          redirectTo: `${window.location.origin}/update-password`,
+        });
+      } catch {
+        // graceful toast
+      }
+      setLoading(false);
+      triggerToast(`Password reset link sent to ${trimmedEmail}!`);
       setTimeout(() => {
-        setLoading(false);
-        triggerToast(`Password reset link sent to ${trimmedEmail}!`);
-        setTimeout(() => {
-          setIsForgotPasswordMode(false);
-          setIsSignUpMode(false);
-        }, 1500);
-      }, 500);
+        setIsForgotPasswordMode(false);
+        setIsSignUpMode(false);
+      }, 1500);
       return;
     }
 
@@ -280,21 +322,46 @@ export default function LoginPage() {
       const displayName = fullName.trim() || trimmedEmail.split("@")[0];
 
       try {
-        const res = await api.signup({
+        let authUserId = "";
+        let authToken = "";
+
+        const { data: supaData, error: supaErr } = await supabase.auth.signUp({
           email: trimmedEmail,
           password,
-          full_name: displayName,
+          options: {
+            data: { full_name: displayName, name: displayName },
+          },
         });
 
+        if (!supaErr && supaData?.user) {
+          authUserId = supaData.user.id;
+          authToken = supaData.session?.access_token || "";
+        }
+
+        // If direct client signup didn't return a session or errored, delegate to backend auth/signup
+        if (!authToken) {
+          const res = await api.signup({
+            email: trimmedEmail,
+            password,
+            full_name: displayName,
+          });
+          authUserId = res.user?.id || authUserId;
+          authToken = res.token || authToken;
+        }
+
+        if (!authUserId) {
+          throw new Error("Unable to establish Supabase user account.");
+        }
+
         const loggedUser: LocalUser = {
-          id: res.user?.id || `user_${Date.now()}`,
-          email: res.user?.email || trimmedEmail,
-          full_name: res.user?.full_name || displayName,
+          id: authUserId,
+          email: trimmedEmail,
+          full_name: displayName,
         };
 
         localStorage.setItem("obsidian_session", JSON.stringify(loggedUser));
-        if (res.token) {
-          localStorage.setItem("obsidian_token", res.token);
+        if (authToken) {
+          localStorage.setItem("obsidian_token", authToken);
         }
         localStorage.setItem("ownerName", displayName);
         setActiveSessionUser(loggedUser);
@@ -313,22 +380,40 @@ export default function LoginPage() {
       const displayName = fullName.trim() || trimmedEmail.split("@")[0];
 
       try {
-        const res = await api.login({
+        let authUserId = "";
+        let authToken = "";
+
+        const { data: supaData, error: supaErr } = await supabase.auth.signInWithPassword({
           email: trimmedEmail,
           password,
         });
 
+        if (!supaErr && supaData?.user && supaData?.session) {
+          authUserId = supaData.user.id;
+          authToken = supaData.session.access_token;
+        } else {
+          // Fallback / sync to backend api.login which calls Supabase auth
+          const res = await api.login({
+            email: trimmedEmail,
+            password,
+          });
+          authUserId = res.user?.id || "";
+          authToken = res.token || "";
+        }
+
+        if (!authUserId || !authToken) {
+          throw new Error("Invalid credentials. Please check your email and password.");
+        }
+
         const loggedUser: LocalUser = {
-          id: res.user?.id || `user_${Date.now()}`,
-          email: res.user?.email || trimmedEmail,
-          full_name: res.user?.full_name || displayName,
+          id: authUserId,
+          email: trimmedEmail,
+          full_name: displayName,
         };
 
         localStorage.setItem("obsidian_session", JSON.stringify(loggedUser));
-        if (res.token) {
-          localStorage.setItem("obsidian_token", res.token);
-        }
-        if (!localStorage.getItem("ownerName") || res.user?.full_name) {
+        localStorage.setItem("obsidian_token", authToken);
+        if (!localStorage.getItem("ownerName")) {
           localStorage.setItem("ownerName", loggedUser.full_name || displayName);
         }
         setActiveSessionUser(loggedUser);
@@ -635,60 +720,21 @@ export default function LoginPage() {
                       type="button"
                       data-cursor="link"
                       onClick={async () => {
-                        const targetEmail = email.trim() || prompt("Enter your Gmail address to sign in with Google:")?.trim() || "";
-                        if (!targetEmail) {
-                          triggerToast("Please enter your Gmail address to sign in.");
-                          return;
-                        }
-
                         setLoading(true);
-                        const targetName = fullName.trim() || targetEmail.split("@")[0];
                         try {
-                          let res;
-                          try {
-                            res = await api.login({ email: targetEmail, password: "GoogleOAuthPassword_2026!" });
-                          } catch {
-                            res = await api.signup({
-                              email: targetEmail,
-                              password: "GoogleOAuthPassword_2026!",
-                              full_name: targetName,
-                            });
-                          }
-
-                          const loggedUser: LocalUser = {
-                            id: res.user?.id || `user_${targetEmail}`,
-                            email: res.user?.email || targetEmail,
-                            full_name: res.user?.full_name || targetName,
-                          };
-
-                          localStorage.setItem("obsidian_session", JSON.stringify(loggedUser));
-                          if (res.token) {
-                            localStorage.setItem("obsidian_token", res.token);
-                          }
-                          localStorage.setItem("ownerName", loggedUser.full_name || targetName);
-                          setActiveSessionUser(loggedUser);
-                          triggerToast(`Signed in with Google (${targetEmail})!`);
-                          setTimeout(() => {
+                          const { error } = await supabase.auth.signInWithOAuth({
+                            provider: "google",
+                            options: {
+                              redirectTo: `${window.location.origin}/p1`,
+                            },
+                          });
+                          if (error) {
+                            triggerToast(error.message);
                             setLoading(false);
-                            router.push("/p1");
-                          }, 1000);
-                        } catch {
-                          const safeId = `user_${targetEmail.toLowerCase().replace(/[^a-z0-9]/g, "_")}`;
-                          const loggedUser: LocalUser = {
-                            id: safeId,
-                            email: targetEmail,
-                            full_name: targetName,
-                          };
-
-                          localStorage.setItem("obsidian_session", JSON.stringify(loggedUser));
-                          localStorage.setItem("obsidian_token", `dev-mock-${safeId}`);
-                          localStorage.setItem("ownerName", targetName);
-                          setActiveSessionUser(loggedUser);
-                          triggerToast(`Signed in with Google (${targetEmail})!`);
-                          setTimeout(() => {
-                            setLoading(false);
-                            router.push("/p1");
-                          }, 1000);
+                          }
+                        } catch (err: any) {
+                          triggerToast(err.message || "Failed to sign in with Google.");
+                          setLoading(false);
                         }
                       }}
                     >

@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
+import { supabase } from "@/lib/supabase";
 import "./dashboard.css";
 
 
@@ -338,7 +339,7 @@ export default function DashboardPage() {
     let unsubscribeSse: (() => void) | null = null;
 
     const initDashboard = async () => {
-      // Step 1: Read session identity from localStorage (always available after login)
+      // Step 1: Read session identity from Supabase Auth & localStorage
       let currentUserId = "local_user";
       let storedShop = "OBSIDIAN Store";
       let storedType = "clothing";
@@ -348,6 +349,20 @@ export default function DashboardPage() {
       let initialOrders: Order[] = [];
 
       try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.access_token) {
+          localStorage.setItem("obsidian_token", session.access_token);
+          if (session.user) {
+            const supaUser = {
+              id: session.user.id,
+              email: session.user.email || "",
+              full_name: (session.user.user_metadata?.full_name as string) || (session.user.user_metadata?.name as string) || session.user.email?.split("@")[0] || "Merchant",
+            };
+            localStorage.setItem("obsidian_session", JSON.stringify(supaUser));
+            currentUserId = supaUser.id;
+          }
+        }
+
         const storedSession = localStorage.getItem("obsidian_session");
         if (storedSession) {
           const user = JSON.parse(storedSession);
@@ -1436,8 +1451,15 @@ export default function DashboardPage() {
   };
 
   // Logout handler
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      // ignore
+    }
+    localStorage.removeItem("obsidian_token");
     localStorage.removeItem("obsidian_session");
+    localStorage.removeItem("obsidian_store_id");
     localStorage.removeItem("ownerName");
     localStorage.removeItem("shopName");
     localStorage.removeItem("businessType");

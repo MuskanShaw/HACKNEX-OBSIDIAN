@@ -54,12 +54,6 @@ export async function apiRequest<T = any>(
   const headers: Record<string, string> = {
     ...(isFormData ? {} : { "Content-Type": "application/json" }),
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    // Always send user identity headers in all environments.
-    // The backend uses these to identify the user by email when no valid JWT
-    // token exists (e.g. new device, token expired) — enabling cross-device persistence.
-    ...(user?.id ? { "x-mock-user-id": user.id, "x-user-id": user.id } : {}),
-    ...(user?.email ? { "x-mock-user-email": user.email, "x-user-email": user.email } : {}),
-    ...(user?.full_name ? { "x-mock-user-name": user.full_name, "x-user-name": user.full_name } : {}),
     ...((options.headers as Record<string, string>) || {}),
   };
 

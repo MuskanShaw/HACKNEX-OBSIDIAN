@@ -528,38 +528,30 @@ async function runTests() {
       if (data.user.id !== user1Id) throw new Error(`User ID mismatch: expected ${user1Id}, got ${data.user.id}`);
     });
 
-    // Case 2: Missing JWT + valid x-user-id -> user identified
-    await assert('Case 2: Missing JWT + valid x-user-id -> user identified', async () => {
+    // Case 2: Custom x-user-id header without Bearer token is rejected with 401
+    await assert('Case 2: Custom identity header x-user-id without Bearer token is rejected with 401', async () => {
       const res = await fetch(`${baseUrl}/api/account/state`, {
         headers: {
           'x-user-id': user1Id,
           Accept: 'application/json',
         },
       });
-      if (res.status !== 200) throw new Error(`Expected 200, got ${res.status}`);
-      const data = (await res.json()) as any;
-      if (data.user.id !== user1Id) throw new Error(`Expected user ID ${user1Id}, got ${data.user.id}`);
-      if (data.store.id !== defaultStoreId) throw new Error(`Store mismatch: expected ${defaultStoreId}, got ${data.store.id}`);
+      if (res.status !== 401) throw new Error(`Expected 401 Unauthorized, got ${res.status}`);
     });
 
-    // Case 3: Missing JWT + valid x-user-email -> user identified
-    await assert('Case 3: Missing JWT + valid x-user-email -> user identified', async () => {
+    // Case 3: Custom x-user-email header without Bearer token is rejected with 401
+    await assert('Case 3: Custom identity header x-user-email without Bearer token is rejected with 401', async () => {
       const res = await fetch(`${baseUrl}/api/account/state`, {
         headers: {
           'x-user-email': user1Email,
           Accept: 'application/json',
         },
       });
-      if (res.status !== 200) throw new Error(`Expected 200, got ${res.status}`);
-      const data = (await res.json()) as any;
-      if (data.user.email.toLowerCase() !== user1Email.toLowerCase()) {
-        throw new Error(`Expected user email ${user1Email}, got ${data.user.email}`);
-      }
-      if (data.store.id !== defaultStoreId) throw new Error(`Store mismatch: expected ${defaultStoreId}, got ${data.store.id}`);
+      if (res.status !== 401) throw new Error(`Expected 401 Unauthorized, got ${res.status}`);
     });
 
-    // Case 4: Invalid fallback identity -> 401/403
-    await assert('Case 4: Invalid fallback identity -> rejected with 401', async () => {
+    // Case 4: Invalid/unauthenticated identity headers -> rejected with 401
+    await assert('Case 4: Invalid/unauthenticated identity headers -> rejected with 401', async () => {
       // 4a. Non-existent user ID
       const resFakeId = await fetch(`${baseUrl}/api/account/state`, {
         headers: { 'x-user-id': '99999999-9999-9999-9999-999999999999' },
@@ -592,17 +584,17 @@ async function runTests() {
       });
       if (resWithJwt.status !== 403) throw new Error(`Expected 403 Forbidden with JWT, got ${resWithJwt.status}`);
 
-      // User 2 authenticated with valid fallback identity attempting to patch User 1's store
-      const resWithFallback = await fetch(`${baseUrl}/api/stores/${storeId}`, {
+      // User 2 attempting to access User 1's store without token -> rejected with 401
+      const resWithoutToken = await fetch(`${baseUrl}/api/stores/${storeId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
           'x-user-id': user2Id,
           'x-user-email': 'intruder@other.com',
         },
-        body: JSON.stringify({ name: 'Hacked by User 2 via Fallback' }),
+        body: JSON.stringify({ name: 'Hacked by User 2 via Header' }),
       });
-      if (resWithFallback.status !== 403) throw new Error(`Expected 403 Forbidden with fallback, got ${resWithFallback.status}`);
+      if (resWithoutToken.status !== 401) throw new Error(`Expected 401 without Bearer token, got ${resWithoutToken.status}`);
     });
 
     // Case 6: GET /api/account/state with JWT -> correct state
@@ -620,32 +612,50 @@ async function runTests() {
       if (!jwtStateSnapshot.analytics || typeof jwtStateSnapshot.analytics.totalSales !== 'number') throw new Error('Missing analytics in state');
     });
 
-    // Case 7: GET /api/account/state with fallback identity -> same user's correct state
-    await assert("Case 7: GET /api/account/state with fallback identity -> returns same user's correct state", async () => {
+    // Case 7: Supabase Auth Session on Device 2 -> returns same user's correct state
+    await assert("Case 7: Supabase Auth Session on Device 2 -> returns same user's correct state", async () => {
+      // Simulating Device 2 with secondary fresh Supabase access token for the same user
+      const device2Token = jwt.sign(
+        {
+          sub: user1Id,
+          email: user1Email,
+          user_metadata: { full_name: 'Hrishikesh Owner' },
+        },
+        jwtSecret,
+        { expiresIn: '7d' }
+      );
+
       const res = await fetch(`${baseUrl}/api/account/state`, {
         headers: {
-          'x-user-id': user1Id,
-          'x-user-email': user1Email,
-          'x-user-name': 'Hrishikesh Owner',
+          Authorization: `Bearer ${device2Token}`,
           Accept: 'application/json',
         },
       });
       if (res.status !== 200) throw new Error(`Expected 200, got ${res.status}`);
       const fallbackState = (await res.json()) as any;
-      if (fallbackState.user.id !== jwtStateSnapshot.user.id) throw new Error('User ID mismatch between JWT and fallback state');
-      if (fallbackState.store.id !== jwtStateSnapshot.store.id) throw new Error('Store ID mismatch between JWT and fallback state');
-      if (fallbackState.products.length !== jwtStateSnapshot.products.length) throw new Error('Products count mismatch between JWT and fallback state');
-      if (fallbackState.orders.length !== jwtStateSnapshot.orders.length) throw new Error('Orders count mismatch between JWT and fallback state');
-      if (fallbackState.analytics.totalSales !== jwtStateSnapshot.analytics.totalSales) throw new Error('Analytics mismatch between JWT and fallback state');
+      if (fallbackState.user.id !== jwtStateSnapshot.user.id) throw new Error('User ID mismatch between sessions');
+      if (fallbackState.store.id !== jwtStateSnapshot.store.id) throw new Error('Store ID mismatch between sessions');
+      if (fallbackState.products.length !== jwtStateSnapshot.products.length) throw new Error('Products count mismatch between sessions');
+      if (fallbackState.orders.length !== jwtStateSnapshot.orders.length) throw new Error('Orders count mismatch between sessions');
+      if (fallbackState.analytics.totalSales !== jwtStateSnapshot.analytics.totalSales) throw new Error('Analytics mismatch between sessions');
     });
 
-    // Case 8: Another device using the same account -> same store/products/orders are returned
-    await assert('Case 8: Another device using the same account -> identical store/products/orders returned', async () => {
-      // Simulating a fresh secondary device (mobile/incognito) with NO bearer token
+    // Case 8: Another device using the same Supabase account -> identical store/products/orders are returned
+    await assert('Case 8: Another device using the same Supabase account -> identical store/products/orders returned', async () => {
+      // Simulating a fresh secondary device (mobile/incognito) signing in with same Supabase credentials
+      const device2Token = jwt.sign(
+        {
+          sub: user1Id,
+          email: user1Email,
+          user_metadata: { full_name: 'Hrishikesh Owner' },
+        },
+        jwtSecret,
+        { expiresIn: '7d' }
+      );
+
       const device2Res = await fetch(`${baseUrl}/api/account/state`, {
         headers: {
-          'x-user-id': user1Id,
-          'x-user-email': user1Email,
+          Authorization: `Bearer ${device2Token}`,
           'User-Agent': 'ObsidianMobile/1.0',
         },
       });

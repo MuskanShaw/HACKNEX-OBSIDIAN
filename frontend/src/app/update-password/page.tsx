@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api } from "@/lib/api";
+import { supabase } from "@/lib/supabase";
 import "@/app/login.css";
 
 export default function UpdatePasswordPage() {
@@ -62,7 +63,10 @@ export default function UpdatePasswordPage() {
     setErrorMessage(null);
 
     try {
-      await api.updatePassword({ password: newPassword });
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) {
+        await api.updatePassword({ password: newPassword });
+      }
 
       const stored = localStorage.getItem("obsidian_session");
       if (stored) {

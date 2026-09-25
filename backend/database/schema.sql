@@ -38,10 +38,13 @@ CREATE TABLE IF NOT EXISTS public.users (
     full_name TEXT,
     avatar_url TEXT,
     role TEXT DEFAULT 'merchant',
-    auth0_sub TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Ensure auth0_sub is removed if it previously existed
+ALTER TABLE IF EXISTS public.users DROP COLUMN IF EXISTS auth0_sub;
+ALTER TABLE IF EXISTS public.profiles DROP COLUMN IF EXISTS auth0_sub;
 
 -- Trigger to sync auth.users to public.profiles automatically on new user signup
 CREATE OR REPLACE FUNCTION public.handle_new_user()

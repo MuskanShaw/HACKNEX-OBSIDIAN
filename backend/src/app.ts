@@ -92,13 +92,6 @@ export function createApp(): Express {
         'Origin',
         'X-Requested-With',
         'apikey',
-        'x-mock-user-id',
-        'x-user-id',
-        'x-mock-user-email',
-        'x-user-email',
-        'x-mock-user-name',
-        'x-user-name',
-        'x-store-id',
       ],
     })
   );
