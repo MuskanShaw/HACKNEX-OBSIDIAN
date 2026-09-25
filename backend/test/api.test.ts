@@ -2370,6 +2370,20 @@ async function runTests() {
         throw new Error(`Second lookup expected null, but record was unexpectedly created`);
       }
     });
+
+    // CASE H: getUserByEmail is strictly read-only and never performs automatic writes or listUsers
+    await assert('CASE H: dataStore.getUserByEmail is strictly read-only and returns null for missing profile', async () => {
+      const nonExistentEmail = 'nonexistent_test_email_999@example.com';
+      const result = await dataStore.getUserByEmail(nonExistentEmail);
+      if (result !== null) {
+        throw new Error(`Expected null for non-existent email, got ${JSON.stringify(result)}`);
+      }
+      // Verify lookup of existing user returns profile correctly
+      const existing = await dataStore.getUserByEmail(user1Email);
+      if (!existing || existing.email.toLowerCase() !== user1Email.toLowerCase()) {
+        throw new Error(`Expected existing user profile for ${user1Email}, got ${JSON.stringify(existing)}`);
+      }
+    });
   } finally {
     server!.close();
   }

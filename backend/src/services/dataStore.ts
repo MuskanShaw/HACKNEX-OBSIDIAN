@@ -232,18 +232,23 @@ export const dataStore = {
     const normalized = email.toLowerCase().trim();
     if (isLiveSupabaseConfigured()) {
       const client = getSupabaseClient();
-      // Query canonical public.profiles table
-      try {
-        const { data, error } = await client.from('profiles').select('*').eq('email', normalized).maybeSingle();
-        if (error) {
-          console.warn(`[DATASTORE] getUserByEmail profiles error: ${error.message} (code: ${error.code || 'UNKNOWN'})`);
-        } else if (data) {
-          return data as UserRecord;
-        }
-      } catch (err: any) {
-        console.warn(`[DATASTORE] getUserByEmail profiles exception: ${err.message}`);
+      // Query canonical public.profiles table by email
+      const { data, error } = await client
+        .from('profiles')
+        .select('*')
+        .eq('email', normalized)
+        .maybeSingle();
+
+      if (error) {
+        console.warn(`[DATASTORE] getUserByEmail profiles error: ${error.message} (code: ${error.code || 'UNKNOWN'})`);
+        throw new Error(`Database error querying user profile by email: ${error.message}`);
       }
 
+      if (data) {
+        return data as UserRecord;
+      }
+
+      // Profile does not exist for this email
       return null;
     }
 
