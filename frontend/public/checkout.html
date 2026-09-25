@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkout - Obsidian Store</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        body {
+            min-height: 100vh;
+            color: #102a43;
+            background:
+                radial-gradient(circle at 10% 10%, rgba(139, 190, 232, .7), transparent 35%),
+                radial-gradient(circle at 90% 20%, rgba(213, 236, 255, .75), transparent 35%),
+                linear-gradient(135deg, #aab8c4, #d7e1ea 48%, #8ea4b3);
+            padding: 30px 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .checkout-container {
+            width: 100%;
+            max-width: 800px;
+            background: rgba(255, 255, 255, 0.72);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            border-radius: 24px;
+            box-shadow: 0 25px 60px rgba(18, 48, 68, 0.18);
+            padding: 35px;
+            position: relative;
+        }
+
+        .checkout-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid rgba(23, 59, 86, 0.12);
+            padding-bottom: 20px;
+            margin-bottom: 25px;
+        }
+
+        .checkout-header h1 {
+            font-size: 24px;
+            color: #061827;
+        }
+
+        .back-link {
+            color: #1d4ed8;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            background: rgba(255, 255, 255, 0.6);
+            border-radius: 10px;
+            border: 1px solid rgba(29, 78, 216, 0.2);
+            transition: .2s;
+        }
+
+        .back-link:hover {
+            background: rgba(255, 255, 255, 0.9);
+            transform: translateX(-2px);
+        }
+
+        .checkout-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+
+        @media (max-width: 700px) {
+            .checkout-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 12px;
+            font-weight: 700;
+            color: #173b56;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 12px 14px;
+            border-radius: 12px;
+            border: 1px solid rgba(23, 59, 86, 0.2);
+            background: rgba(255, 255, 255, 0.65);
+            font-size: 14px;
+            color: #102a43;
+            outline: none;
+            transition: .2s;
+        }
+
+        .form-control:focus {
+            border-color: #1d4ed8;
+            background: rgba(255, 255, 255, 0.95);
+            box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.15);
+        }
+
+        .order-summary {
+            background: rgba(224, 243, 255, 0.45);
+            border-radius: 18px;
+            border: 1px solid rgba(255, 255, 255, 0.7);
+            padding: 22px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .order-summary h2 {
+            font-size: 18px;
+            color: #061827;
+            margin-bottom: 16px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(23, 59, 86, 0.1);
+        }
+
+        .summary-items {
+            max-height: 200px;
+            overflow-y: auto;
+            margin-bottom: 16px;
+            padding-right: 6px;
+        }
+
+        .summary-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            font-size: 14px;
+        }
+
+        .summary-item-name {
+            color: #102a43;
+            font-weight: 600;
+        }
+
+        .summary-item-price {
+            color: #173b56;
+            font-weight: 700;
+        }
+
+        .summary-total {
+            border-top: 1px dashed rgba(23, 59, 86, 0.2);
+            padding-top: 14px;
+            margin-top: 14px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 18px;
+            font-weight: 800;
+            color: #061827;
+        }
+
+        .place-order-btn {
+            width: 100%;
+            margin-top: 20px;
+            padding: 15px;
+            border: none;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #16a34a, #059669);
+            color: white;
+            font-size: 16px;
+            font-weight: 800;
+            cursor: pointer;
+            box-shadow: 0 10px 25px rgba(22, 163, 74, 0.3);
+            transition: .25s;
+        }
+
+        .place-order-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 14px 30px rgba(22, 163, 74, 0.45);
+        }
+
+        /* Success screen */
+        .success-box {
+            display: none;
+            text-align: center;
+            padding: 40px 20px;
+        }
+
+        .success-box .icon {
+            font-size: 60px;
+            margin-bottom: 15px;
+        }
+
+        .success-box h2 {
+            font-size: 26px;
+            color: #166534;
+            margin-bottom: 10px;
+        }
+
+        .success-box p {
+            color: #334155;
+            font-size: 15px;
+            margin-bottom: 25px;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="checkout-container">
+        <!-- Main Form & Summary -->
+        <div id="checkoutMain">
+            <div class="checkout-header">
+                <div>
+                    <h1 id="storeTitle">Complete Your Order</h1>
+                    <span id="shopSubtitle" style="font-size: 13px; color: #475569;">Obsidian Merchant Network</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <a href="/p3.html" class="back-link">← Store</a>
+                    <a href="/p2" class="back-link" style="color:#0f766e;">📊 Dashboard</a>
+                    <a href="/login" class="back-link" style="color:#4338ca;">🔑 Login</a>
+                </div>
+            </div>
+
+            <div class="checkout-grid">
+                <!-- Customer Details Form -->
+                <form id="orderForm" onsubmit="handlePlaceOrder(event)">
+                    <div class="form-group">
+                        <label for="customerName">Full Name *</label>
+                        <input type="text" id="customerName" class="form-control" placeholder="e.g. Alex Morgan"
+                            required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="customerPhone">Phone Number *</label>
+                        <input type="tel" id="customerPhone" class="form-control" placeholder="e.g. +91 98765 43210"
+                            required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="customerAddress">Delivery Address *</label>
+                        <textarea id="customerAddress" class="form-control" rows="3"
+                            placeholder="Street, Flat/Building, City, PIN" required></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="paymentMethod">Payment Method</label>
+                        <select id="paymentMethod" class="form-control">
+                            <option value="Cash on Delivery">Cash on Delivery (COD)</option>
+                            <option value="UPI / QR">UPI (GPay / PhonePe / Paytm)</option>
+                            <option value="Card">Debit / Credit Card</option>
+                        </select>
+                    </div>
+
+                    <button type="submit" class="place-order-btn">
+                        Confirm & Place Order 🎉
+                    </button>
+                </form>
+
+                <!-- Order Summary -->
+                <div class="order-summary">
+                    <div>
+                        <h2>Order Summary</h2>
+                        <div class="summary-items" id="summaryItems"></div>
+                    </div>
+
+                    <div>
+                        <div class="summary-total">
+                            <span>Total Due:</span>
+                            <span id="summaryTotal">₹0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Order Placed Success Message -->
+        <div id="orderSuccess" class="success-box">
+            <div class="icon">✅</div>
+            <h2>Order Placed Successfully!</h2>
+            <p>
+                Thank you for your purchase. Your order has been placed and received by <strong
+                    id="merchantNameText">the store</strong>.<br>
+                A receipt has been recorded and the merchant has been notified!
+            </p>
+            <div style="display: flex; justify-content: center; gap: 12px;">
+                <a href="/p3.html" class="back-link" style="padding: 12px 24px; font-size: 15px;">
+                    🛍️ Continue Shopping
+                </a>
+                <a href="/p2" class="back-link"
+                    style="padding: 12px 24px; font-size: 15px; background: #0f172a; color: #fff; border: none;">
+                    📊 View In Dashboard
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const shopName = localStorage.getItem("shopName") || "OBSIDIAN Store";
+        const currency = localStorage.getItem("storeCurrency") || "₹";
+        document.getElementById("storeTitle").textContent = `${shopName} - Checkout`;
+        document.getElementById("merchantNameText").textContent = shopName;
+
+        let cart = JSON.parse(localStorage.getItem("cart")) || [];
+
+        function renderSummary() {
+            const container = document.getElementById("summaryItems");
+            if (cart.length === 0) {
+                container.innerHTML = `<p style="color: #64748b; font-size: 14px;">Your cart is empty.</p>`;
+                document.getElementById("summaryTotal").textContent = `${currency}0`;
+                return;
+            }
+
+            let total = 0;
+            container.innerHTML = cart.map(item => {
+                const price = item.discountPrice > 0 ? item.discountPrice : item.price;
+                const lineTotal = price * item.quantity;
+                total += lineTotal;
+                return `
+                    <div class="summary-item">
+                        <span class="summary-item-name">${item.name} × ${item.quantity}</span>
+                        <span class="summary-item-price">${currency}${lineTotal.toLocaleString()}</span>
+                    </div>
+                `;
+            }).join("");
+
+            document.getElementById("summaryTotal").textContent = `${currency}${total.toLocaleString()}`;
+        }
+
+        renderSummary();
+
+        async function handlePlaceOrder(e) {
+            e.preventDefault();
+            if (cart.length === 0) {
+                alert("Cart is empty! Please add items from the store first.");
+                window.location.href = "/p3.html";
+                return;
+            }
+
+            const customerName = document.getElementById("customerName").value.trim();
+            const customerPhone = document.getElementById("customerPhone").value.trim();
+            const customerAddress = document.getElementById("customerAddress").value.trim();
+            const paymentMethod = document.getElementById("paymentMethod").value;
+
+            // Compute total
+            const total = cart.reduce((sum, item) => {
+                const price = item.discountPrice > 0 ? item.discountPrice : item.price;
+                return sum + (price * item.quantity);
+            }, 0);
+
+            const totalQuantity = cart.reduce((q, i) => q + Number(i.quantity || 1), 0);
+            const summaryProductName = cart.map(i => `${i.name} (x${i.quantity})`).join(", ");
+
+            // Build items array matching Swagger schema
+            const orderItems = cart.map(item => {
+                const itemPrice = item.discountPrice > 0 ? item.discountPrice : item.price;
+                const pId = typeof item.id === "number" ? item.id : parseInt(item.id) || item.id;
+                return {
+                    productId: pId,
+                    productName: item.name,
+                    quantity: Number(item.quantity || 1),
+                    price: Number(itemPrice || 0)
+                };
+            });
+
+            // Read existing orders
+            let existingOrders = [];
+            try {
+                const storedOrders = localStorage.getItem("obsidian_orders") || localStorage.getItem("orders");
+                if (storedOrders) existingOrders = JSON.parse(storedOrders);
+            } catch (err) { }
+
+            const orderDate = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            const orderId = Date.now();
+
+            // Create new order record
+            let newOrder = {
+                id: orderId,
+                customerName: customerName,
+                customerPhone: customerPhone,
+                customerAddress: customerAddress,
+                paymentMethod: paymentMethod,
+                items: orderItems,
+                productName: summaryProductName,
+                productId: orderItems[0]?.productId || 0,
+                quantity: totalQuantity,
+                totalPrice: total,
+                totalAmount: total,
+                status: "processing",
+                date: orderDate,
+                phone: customerPhone,
+                address: customerAddress
+            };
+
+            // Payload strictly matching Swagger schema for POST /api/stores/:storeId/orders
+            const payload = {
+                id: orderId,
+                customerName: customerName,
+                customerPhone: customerPhone,
+                customerAddress: customerAddress,
+                paymentMethod: paymentMethod,
+                items: orderItems,
+                productName: summaryProductName,
+                productId: orderItems[0]?.productId || null,
+                quantity: totalQuantity,
+                totalPrice: total,
+                totalAmount: total,
+                status: "processing"
+            };
+
+            // Identify target store ID
+            const urlParams = new URLSearchParams(window.location.search);
+            const targetStoreId = urlParams.get("storeId") || urlParams.get("store_id") || localStorage.getItem("obsidian_store_id") || localStorage.getItem("storeId") || "default";
+
+            const submitBtn = document.querySelector(".place-order-btn");
+            const originalBtnText = submitBtn ? submitBtn.innerHTML : "Confirm & Place Order 🎉";
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = "Placing Order... ⏳";
+            }
+
+            try {
+                // If backend store ID is present, make the authoritative POST request
+                if (targetStoreId && targetStoreId !== "default") {
+                    const res = await fetch(`/api/stores/${encodeURIComponent(targetStoreId)}/orders`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(payload),
+                    });
+
+                    if (!res.ok) {
+                        let errMsg = `Server returned status ${res.status}`;
+                        try {
+                            const errData = await res.json();
+                            errMsg = errData.message || errData.error || errMsg;
+                        } catch (e) { }
+                        throw new Error(errMsg);
+                    }
+
+                    const resData = await res.json();
+                    if (resData.order) {
+                        newOrder = {
+                            ...newOrder,
+                            id: resData.order.id || newOrder.id,
+                            customerName: resData.order.customerName || newOrder.customerName,
+                            productName: resData.order.productName || newOrder.productName,
+                            productId: resData.order.productId || newOrder.productId,
+                            quantity: resData.order.quantity || newOrder.quantity,
+                            totalPrice: resData.order.totalPrice || newOrder.totalPrice,
+                            status: resData.order.status || newOrder.status,
+                            date: resData.order.date || newOrder.date,
+                        };
+                    }
+                }
+
+                // Update local storage orders
+                const updatedOrders = [newOrder, ...existingOrders];
+                localStorage.setItem("obsidian_orders", JSON.stringify(updatedOrders));
+                localStorage.setItem("orders", JSON.stringify(updatedOrders));
+
+                // Decrement stock in local catalog
+                try {
+                    let prods = JSON.parse(localStorage.getItem("products") || localStorage.getItem("obsidian_products") || "[]");
+                    if (Array.isArray(prods) && prods.length > 0) {
+                        cart.forEach(cartItem => {
+                            const match = prods.find(p => String(p.id) === String(cartItem.id));
+                            if (match && typeof match.stock === "number") {
+                                match.stock = Math.max(0, match.stock - cartItem.quantity);
+                            }
+                        });
+                        localStorage.setItem("products", JSON.stringify(prods));
+                        localStorage.setItem("obsidian_products", JSON.stringify(prods));
+                    }
+                } catch (err) { }
+
+                // Clear cart on successful order
+                localStorage.removeItem("cart");
+                cart = [];
+
+                // Display success screen
+                document.getElementById("checkoutMain").style.display = "none";
+                document.getElementById("orderSuccess").style.display = "block";
+            } catch (err) {
+                console.error("Order submission failed:", err);
+                alert(`Could not place order: ${err.message || "Please check your network and try again."}`);
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalBtnText;
+                }
+            }
+        }
+    </script>
+
+    <!-- Project Navigation Hub -->
+    <aside aria-label="OBSIDIAN Project Navigation" style="position:fixed;bottom:18px;left:50%;transform:translateX(-50%);z-index:9999;max-width:96vw;font-family:Arial,sans-serif;">
+        <div style="display:flex;align-items:center;gap:8px;background:rgba(10,15,26,0.85);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.18);box-shadow:0 18px 45px rgba(0,0,0,0.35);border-radius:999px;padding:6px 14px;">
+            <a href="/p1" style="display:flex;align-items:center;gap:6px;text-decoration:none;padding:5px 12px;border-radius:999px;background:rgba(255,255,255,0.1);color:#fff;font-size:12px;font-weight:800;letter-spacing:0.08em;border:1px solid rgba(255,255,255,0.15);">
+                <span style="color:#38bdf8;">●</span> OBSIDIAN
+            </a>
+            <div style="display:flex;align-items:center;gap:4px;overflow-x:auto;">
+                <a href="/p1" style="text-decoration:none;padding:6px 12px;border-radius:999px;font-size:12px;font-weight:600;color:#cbd5e1;">🏛️ Monument</a>
+                <a href="/p2" style="text-decoration:none;padding:6px 12px;border-radius:999px;font-size:12px;font-weight:600;color:#cbd5e1;">📊 Dashboard</a>
+                <a href="/p3.html" style="text-decoration:none;padding:6px 12px;border-radius:999px;font-size:12px;font-weight:600;color:#cbd5e1;">🛍️ Store</a>
+                <a href="/checkout.html" style="text-decoration:none;padding:6px 12px;border-radius:999px;font-size:12px;font-weight:700;color:#fff;background:rgba(56,189,248,0.25);border:1px solid rgba(56,189,248,0.45);">💳 Checkout</a>
+            </div>
+        </div>
+    </aside>
+
+</body>
+
+</html >

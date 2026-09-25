@@ -1,0 +1,1799 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title id="pageTitle">My Store</title>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            min-height: 100vh;
+            color: #eef6ff;
+
+            /* Cool translucent glass atmosphere */
+            background:
+                radial-gradient(circle at 10% 10%,
+                    rgba(139, 190, 232, .7),
+                    transparent 35%),
+                radial-gradient(circle at 90% 20%,
+                    rgba(213, 236, 255, .75),
+                    transparent 35%),
+                linear-gradient(135deg,
+                    #aab8c4,
+                    #d7e1ea 48%,
+                    #8ea4b3);
+
+            overflow-x: hidden;
+            padding-bottom: 70px;
+        }
+
+        /* =========================
+       BACKGROUND EFFECT
+    ========================== */
+
+        body::before {
+            content: "";
+            position: fixed;
+            width: 450px;
+            height: 450px;
+
+            background: rgba(105, 160, 197, .42);
+
+            border-radius: 50%;
+
+            filter: blur(80px);
+
+            top: -180px;
+            left: -150px;
+
+            z-index: -1;
+        }
+
+        body::after {
+            content: "";
+            position: fixed;
+            width: 400px;
+            height: 400px;
+
+            background: rgba(220, 241, 255, .45);
+
+            border-radius: 50%;
+
+            filter: blur(80px);
+
+            right: -150px;
+            bottom: -150px;
+
+            z-index: -1;
+        }
+
+
+        /* =========================
+       HEADER
+    ========================== */
+
+        header {
+            position: sticky;
+            top: 15px;
+
+            width: 92%;
+            max-width: 1400px;
+
+            margin: 15px auto;
+
+            padding: 14px 20px;
+
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+
+            gap: 20px;
+
+            background: rgba(255, 255, 255, .68);
+
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+
+            border: 1px solid rgba(225, 244, 255, .5);
+
+            box-shadow:
+                0 15px 50px rgba(36, 65, 86, .18),
+                inset 0 1px 0 rgba(255, 255, 255, .7);
+
+            border-radius: 20px;
+
+            z-index: 100;
+
+            overflow: hidden;
+        }
+
+        .header-marquee {
+            width: 92%;
+            max-width: 1400px;
+            height: 34px;
+            margin: 15px auto 0;
+            overflow: hidden;
+            white-space: nowrap;
+            border: 1px solid rgba(47, 135, 184, .32);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, .24);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            box-shadow: 0 8px 24px rgba(36, 65, 86, .12), inset 0 1px 0 rgba(255, 255, 255, .7);
+        }
+
+        .marquee-track {
+            display: inline-block;
+            min-width: 100%;
+            padding-left: 100%;
+            color: #173b56;
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 1.1px;
+            line-height: 32px;
+            text-transform: uppercase;
+            animation: shopMarquee 22s linear infinite;
+        }
+
+        .marquee-track strong {
+            color: #061827;
+        }
+
+        .marquee-dot {
+            color: #2f87b8;
+            padding: 0 8px;
+        }
+
+        @keyframes shopMarquee {
+            from {
+                transform: translateX(0);
+            }
+
+            to {
+                transform: translateX(-100%);
+            }
+        }
+
+        header::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 8%;
+            right: 8%;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .95), transparent);
+            box-shadow: 0 0 18px rgba(184, 232, 255, .9);
+            pointer-events: none;
+        }
+
+        header>* {
+            position: relative;
+            z-index: 1;
+        }
+
+
+        /* BRAND */
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo {
+            width: 48px;
+            height: 48px;
+
+            border-radius: 14px;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            background: linear-gradient(145deg, rgba(18, 48, 68, .92), rgba(32, 91, 121, .82));
+
+            border: 1px solid rgba(197, 231, 249, .65);
+
+            box-shadow:
+                inset 0 1px 0 rgba(255, 255, 255, .9),
+                0 8px 25px rgba(6, 24, 39, .22),
+                0 0 24px rgba(65, 170, 220, .36),
+                inset 0 1px 0 rgba(255, 255, 255, .42);
+
+            font-weight: bold;
+            font-size: 18px;
+            color: #f3fbff;
+
+            overflow: hidden;
+        }
+
+        .logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .brand h2 {
+            position: relative;
+            display: inline-block;
+            font-size: 18px;
+            font-weight: 800;
+            color: #061827;
+            text-shadow: 0 1px 0 rgba(255, 255, 255, .75), 0 0 14px rgba(125, 205, 240, .5);
+        }
+
+        .brand h2::after {
+            content: "";
+            position: absolute;
+            left: 0;
+            bottom: -5px;
+            width: 65%;
+            height: 2px;
+            border-radius: 2px;
+            background: linear-gradient(90deg, #2f87b8, transparent);
+            box-shadow: 0 0 8px rgba(47, 135, 184, .65);
+        }
+
+        .brand p {
+            color: #173b56;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: .25px;
+            margin-top: 3px;
+        }
+
+
+        /* HEADER RIGHT */
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .search {
+            width: 260px;
+
+            padding: 12px 16px;
+
+            border-radius: 12px;
+
+            border: 1px solid rgba(255, 255, 255, .35);
+
+            background: rgba(255, 255, 255, .22);
+
+            outline: none;
+
+            color: #102a43;
+            font-weight: 600;
+            caret-color: #102a43;
+
+            transition: .25s;
+        }
+
+        .search::placeholder {
+            color: #36566d;
+            opacity: 1;
+        }
+
+        .search:focus {
+            border-color: rgba(16, 42, 67, .5);
+
+            background: rgba(255, 255, 255, .42);
+
+            box-shadow:
+                0 0 0 4px rgba(223, 244, 255, .16);
+        }
+
+
+        .cart-btn {
+            border: none;
+
+            padding: 12px 17px;
+
+            border-radius: 12px;
+
+            background: rgba(19, 42, 61, .78);
+
+            color: white;
+
+            cursor: pointer;
+
+            font-weight: 700;
+
+            transition: .25s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .cart-btn:hover {
+            transform: translateY(-2px);
+
+            background: rgba(7, 25, 40, .92);
+        }
+
+
+        /* =========================
+       HERO
+    ========================== */
+
+        .hero {
+            width: 92%;
+            max-width: 1400px;
+
+            margin: 35px auto 20px;
+
+            min-height: 350px;
+
+            padding: 70px;
+
+            display: flex;
+            align-items: center;
+
+            border-radius: 28px;
+
+            /* WHITE TRANSPARENT GLASS */
+
+            position: relative;
+            overflow: hidden;
+
+            background:
+                linear-gradient(135deg,
+                    rgba(218, 239, 251, .48),
+                    rgba(69, 118, 148, .34));
+
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+
+            border: 1px solid rgba(235, 249, 255, .56);
+
+            box-shadow:
+                0 20px 70px rgba(28, 58, 78, .2),
+                inset 0 1px 0 rgba(255, 255, 255, .6);
+        }
+
+        .hero::before,
+        .hero::after {
+            content: "";
+            position: absolute;
+            pointer-events: none;
+            border: 1px solid rgba(224, 246, 255, .65);
+            border-radius: 50%;
+        }
+
+        .hero::before {
+            width: 260px;
+            height: 260px;
+            right: 12%;
+            top: -78px;
+            background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, .7), rgba(89, 176, 232, .35) 30%, rgba(22, 90, 140, .35) 62%, transparent 68%);
+            box-shadow: 70px 110px 0 -38px rgba(125, 205, 240, .36), inset 22px -20px 35px rgba(255, 255, 255, .36);
+        }
+
+        .hero::after {
+            width: 155px;
+            height: 155px;
+            right: 6%;
+            bottom: -70px;
+            box-shadow: -220px -70px 0 -48px rgba(235, 250, 255, .32), -90px -180px 0 -58px rgba(255, 255, 255, .36);
+        }
+
+        .hero-content {
+            max-width: 750px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .hero h1 {
+            font-size: clamp(36px, 6vw, 68px);
+
+            line-height: 1.08;
+
+            letter-spacing: -2px;
+
+            margin-bottom: 20px;
+            color: #061827;
+            text-shadow: 0 1px 2px rgba(255,255,255,0.7);
+        }
+
+        .hero p {
+            max-width: 650px;
+
+            color: #173b56;
+
+            font-size: 18px;
+
+            line-height: 1.7;
+            font-weight: 500;
+        }
+
+
+        /* =========================
+       CATEGORY
+    ========================== */
+
+        .categories-wrapper {
+            width: 92%;
+            max-width: 1400px;
+
+            margin: 25px auto;
+        }
+
+        .categories {
+            display: flex;
+
+            gap: 10px;
+
+            overflow-x: auto;
+
+            padding: 5px;
+
+            scrollbar-width: none;
+        }
+
+        .categories::-webkit-scrollbar {
+            display: none;
+        }
+
+        .category-btn {
+            white-space: nowrap;
+
+            padding: 10px 18px;
+
+            border-radius: 30px;
+
+            border: 1px solid rgba(235, 249, 255, .42);
+
+            background: rgba(224, 243, 255, .24);
+
+            backdrop-filter: blur(15px);
+
+            cursor: pointer;
+
+            transition: .25s;
+
+            color: #173b56;
+            font-weight: 600;
+        }
+
+        .category-btn:hover {
+            background: rgba(242, 251, 255, .52);
+
+            transform: translateY(-2px);
+        }
+
+        .category-btn.active {
+            background: rgba(19, 47, 68, .82);
+
+            color: white;
+
+            border-color: #111827;
+        }
+
+
+        /* =========================
+       PRODUCTS
+    ========================== */
+
+        .products-section {
+            width: 92%;
+            max-width: 1400px;
+
+            margin: auto;
+
+            padding: 30px 0 70px;
+        }
+
+        .section-title {
+            margin-bottom: 25px;
+        }
+
+        .section-title h2 {
+            font-size: 30px;
+            letter-spacing: -1px;
+            color: #102a43;
+        }
+
+        .section-title p {
+            color: #36566d;
+            margin-top: 7px;
+        }
+
+
+        .products {
+            display: grid;
+
+            grid-template-columns:
+                repeat(4, minmax(0, 1fr));
+
+            gap: 22px;
+        }
+
+
+        /* PRODUCT CARD */
+
+        .product {
+            background: rgba(224, 243, 255, .28);
+
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+
+            border: 1px solid rgba(235, 249, 255, .48);
+
+            border-radius: 20px;
+
+            overflow: hidden;
+
+            box-shadow:
+                0 12px 40px rgba(0, 0, 0, .055);
+
+            transition:
+                transform .3s ease,
+                box-shadow .3s ease;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .product:hover {
+            transform: translateY(-7px);
+
+            box-shadow:
+                0 22px 55px rgba(0, 0, 0, .1);
+        }
+
+
+        /* IMAGE */
+
+        .product-image {
+            height: 230px;
+
+            position: relative;
+
+            overflow: hidden;
+
+            background:
+                rgba(224, 243, 255, .2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .product-image img {
+            width: 100%;
+            height: 100%;
+
+            object-fit: cover;
+
+            transition: .4s;
+        }
+
+        .product:hover .product-image img {
+            transform: scale(1.05);
+        }
+
+
+        .discount {
+            position: absolute;
+
+            top: 12px;
+            left: 12px;
+
+            padding: 7px 10px;
+
+            background: rgba(19, 47, 68, .86);
+
+            color: white;
+
+            border-radius: 8px;
+
+            font-size: 11px;
+
+            font-weight: bold;
+            z-index: 2;
+        }
+
+
+        /* INFO */
+
+        .product-info {
+            padding: 18px;
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+        }
+
+        .category {
+            font-size: 11px;
+
+            color: #36566d;
+
+            font-weight: 700;
+
+            text-transform: uppercase;
+
+            letter-spacing: .5px;
+
+            margin-bottom: 7px;
+        }
+
+        .product-info h3 {
+            font-size: 17px;
+
+            margin-bottom: 8px;
+            color: #102a43;
+        }
+
+        .description {
+            color: #36566d;
+
+            font-size: 13px;
+
+            line-height: 1.5;
+
+            min-height: 40px;
+            margin-bottom: 8px;
+        }
+
+
+        /* PRICE */
+
+        .price {
+            margin: 12px 0;
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
+        }
+
+        .current-price {
+            font-size: 20px;
+            color: #061827;
+            font-weight: 800;
+        }
+
+        .old-price {
+            color: #718d9e;
+
+            font-size: 13px;
+
+            text-decoration: line-through;
+
+            margin-left: 7px;
+        }
+
+
+        /* STOCK */
+
+        .stock {
+            color: #0d7042;
+            font-weight: 700;
+            font-size: 12px;
+
+            margin-bottom: 12px;
+        }
+
+        .out-stock {
+            color: #dc2626;
+            font-weight: 700;
+        }
+
+
+        /* ADD BUTTON */
+
+        .add-btn {
+            width: 100%;
+
+            padding: 12px;
+
+            border: none;
+
+            border-radius: 11px;
+
+            background: rgba(19, 47, 68, .86);
+
+            color: white;
+
+            font-weight: 700;
+
+            cursor: pointer;
+
+            transition: .25s;
+            margin-top: auto;
+        }
+
+        .add-btn:hover:not(:disabled) {
+            background: rgba(7, 25, 40, .94);
+
+            transform: translateY(-1px);
+            box-shadow: 0 4px 14px rgba(7, 25, 40, .3);
+        }
+
+        .add-btn:disabled {
+            background: rgba(160, 180, 195, .55);
+
+            color: #ffffff;
+
+            cursor: not-allowed;
+
+            transform: none;
+        }
+
+
+        /* EMPTY */
+
+        .empty {
+            grid-column: 1 / -1;
+
+            padding: 70px 20px;
+
+            text-align: center;
+
+            background: rgba(224, 243, 255, .28);
+
+            backdrop-filter: blur(20px);
+
+            border-radius: 20px;
+
+            border: 1px solid rgba(235, 249, 255, .48);
+        }
+
+        .empty h2 {
+            color: #102a43;
+            margin-bottom: 8px;
+        }
+
+        .empty p {
+            display: inline-block;
+            color: #173b56;
+            background: rgba(255, 255, 255, .55);
+            border: 1px solid rgba(47, 135, 184, .24);
+            border-radius: 999px;
+            padding: 8px 16px;
+            margin-top: 10px;
+            font-weight: 700;
+        }
+
+
+        /* =========================
+       CART
+    ========================== */
+
+        .cart-panel {
+            position: fixed;
+
+            top: 0;
+            right: -450px;
+
+            width: 410px;
+
+            height: 100vh;
+
+            background: rgba(28, 54, 72, .92);
+
+            backdrop-filter: blur(25px);
+
+            -webkit-backdrop-filter: blur(25px);
+
+            border-left:
+                1px solid rgba(235, 249, 255, .35);
+
+            box-shadow:
+                -15px 0 50px rgba(0, 0, 0, .28);
+
+            z-index: 500;
+
+            padding: 25px;
+
+            overflow-y: auto;
+
+            transition: right .35s ease;
+            color: #f1f8fc;
+        }
+
+        .cart-panel.open {
+            right: 0;
+        }
+
+        .cart-header {
+            display: flex;
+
+            justify-content: space-between;
+
+            align-items: center;
+
+            margin-bottom: 25px;
+            border-bottom: 1px solid rgba(255, 255, 255, .15);
+            padding-bottom: 15px;
+        }
+
+        .cart-header h2 {
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .close {
+            border: none;
+
+            background: rgba(235, 249, 255, .14);
+
+            width: 35px;
+            height: 35px;
+
+            border-radius: 50%;
+
+            font-size: 22px;
+            color: #fff;
+
+            cursor: pointer;
+            transition: .2s;
+        }
+
+        .close:hover {
+            background: rgba(235, 249, 255, .28);
+        }
+
+        .cart-item {
+            display: flex;
+
+            justify-content: space-between;
+            align-items: center;
+
+            gap: 12px;
+
+            padding: 15px 0;
+
+            border-bottom:
+                1px solid rgba(235, 249, 255, .18);
+        }
+
+        .cart-item strong {
+            font-size: 15px;
+            color: #ffffff;
+            display: block;
+        }
+
+        .cart-item p {
+            color: #c8dbe7;
+
+            margin-top: 4px;
+
+            font-size: 13px;
+        }
+
+        .remove {
+            border: none;
+
+            background: #fee2e2;
+
+            color: #b91c1c;
+
+            padding: 6px 11px;
+
+            border-radius: 7px;
+
+            font-weight: 700;
+            font-size: 12px;
+
+            cursor: pointer;
+            transition: .2s;
+        }
+
+        .remove:hover {
+            background: #fecaca;
+        }
+
+        .cart-total {
+            margin-top: 25px;
+
+            font-size: 20px;
+
+            font-weight: bold;
+            color: #ffffff;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .checkout-btn {
+            width: 100%;
+
+            margin-top: 18px;
+
+            padding: 14px;
+
+            border: none;
+
+            border-radius: 12px;
+
+            background: linear-gradient(135deg, #38bdf8, #2563eb);
+
+            color: white;
+
+            cursor: pointer;
+
+            font-weight: bold;
+            font-size: 15px;
+            box-shadow: 0 8px 25px rgba(37, 99, 235, 0.4);
+            transition: .2s;
+        }
+
+        .checkout-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 30px rgba(37, 99, 235, 0.5);
+        }
+
+
+        /* =========================
+       FOOTER
+    ========================== */
+
+        footer {
+            width: 92%;
+            max-width: 1400px;
+
+            margin: 0 auto 25px;
+
+            padding: 35px;
+
+            text-align: center;
+
+            border-radius: 22px;
+
+            background: rgba(224, 243, 255, .28);
+
+            backdrop-filter: blur(20px);
+
+            border: 1px solid rgba(235, 249, 255, .48);
+
+            box-shadow:
+                0 12px 40px rgba(0, 0, 0, .05);
+        }
+
+        footer h3 {
+            color: #061827;
+            margin-bottom: 4px;
+        }
+
+        footer p {
+            display: inline-block;
+            color: #102a43;
+            background: rgba(255, 255, 255, .58);
+            border: 1px solid rgba(47, 135, 184, .3);
+            border-radius: 999px;
+            padding: 9px 18px;
+            margin-top: 10px;
+            font-size: 14px;
+            font-weight: 800;
+            letter-spacing: .2px;
+            box-shadow: 0 6px 18px rgba(36, 65, 86, .1), inset 0 1px 0 rgba(255, 255, 255, .8);
+        }
+
+
+        /* =========================
+       RESPONSIVE
+    ========================== */
+
+        @media(max-width:1100px) {
+
+            .products {
+                grid-template-columns:
+                    repeat(3, minmax(0, 1fr));
+            }
+
+        }
+
+
+        @media(max-width:850px) {
+
+            header {
+                flex-direction: column;
+
+                align-items: stretch;
+            }
+
+            .header-right {
+                width: 100%;
+            }
+
+            .search {
+                flex: 1;
+                width: auto;
+            }
+
+            .hero {
+                padding: 50px 35px;
+            }
+
+            .products {
+                grid-template-columns:
+                    repeat(2, minmax(0, 1fr));
+            }
+
+        }
+
+
+        @media(max-width:600px) {
+
+            header,
+            .hero,
+            .categories-wrapper,
+            .products-section,
+            footer {
+                width: 94%;
+            }
+
+            .hero {
+                min-height: 260px;
+
+                padding: 35px 22px;
+            }
+
+            .hero h1 {
+                font-size: 34px;
+            }
+
+            .products {
+                grid-template-columns: 1fr;
+            }
+
+            .cart-panel {
+                width: 100%;
+
+                right: -100%;
+            }
+
+        }
+    </style>
+</head>
+
+
+<body>
+
+
+    <!-- ================= HEADER ================= -->
+
+    <div class="header-marquee" aria-label="Business announcement">
+        <div class="marquee-track">
+            OBSIDIAN BUSINESS <span class="marquee-dot">•</span>
+            <strong id="marqueeShop">MY STORE</strong>
+            <span class="marquee-dot">•</span>
+            BUILT TO SELL IN 5 MINUTES
+            <span class="marquee-dot">•</span>
+            <strong id="marqueeType">ONLINE STORE</strong>
+            <span class="marquee-dot">•</span>
+            SHOP SMART. GROW BOLD.
+            <span class="marquee-dot">•</span>
+            CURATED FOR MODERN BUSINESS
+            <span class="marquee-dot">•</span>
+            PROFESSIONAL QUALITY. EVERY DAY.
+            <span class="marquee-dot">•</span>
+            SCALE WITH CONFIDENCE.
+        </div>
+    </div>
+
+    <header>
+
+        <div class="brand">
+
+            <div class="logo" id="logo">
+                S
+            </div>
+
+            <div>
+
+                <h2 id="shopName">
+                    My Store
+                </h2>
+
+                <p id="businessType">
+                    Online Store
+                </p>
+
+            </div>
+
+        </div>
+
+
+        <div class="header-right">
+
+            <input type="text" class="search" id="search" placeholder="Search products..." oninput="renderProducts()">
+
+            <button class="cart-btn" onclick="openCart()">
+                🛒 Cart
+                (<span id="cartCount">0</span>)
+            </button>
+
+            <a href="/p2" style="text-decoration:none; padding:10px 14px; border-radius:12px; background:rgba(255,255,255,0.22); color:#102a43; font-weight:700; font-size:13px; border:1px solid rgba(255,255,255,0.4); display:flex; align-items:center; gap:5px; transition:.2s;" title="Manage Store in Dashboard">
+                📊 Dashboard
+            </a>
+
+            <a href="/login" style="text-decoration:none; padding:10px 14px; border-radius:12px; background:rgba(19,42,61,0.85); color:#ffffff; font-weight:700; font-size:13px; border:1px solid rgba(255,255,255,0.2); display:flex; align-items:center; gap:5px; transition:.2s;" title="Login / Account">
+                🔑 Login
+            </a>
+
+        </div>
+
+    </header>
+
+
+
+    <!-- ================= HERO ================= -->
+
+    <section class="hero">
+
+        <div class="hero-content">
+
+            <h1 id="heroTitle">
+                Welcome to My Store
+            </h1>
+
+            <p id="description">
+                Discover our latest products and shop online.
+            </p>
+
+        </div>
+
+    </section>
+
+
+
+    <!-- ================= CATEGORY ================= -->
+
+    <div class="categories-wrapper">
+
+        <div class="categories" id="categories"></div>
+
+    </div>
+
+
+
+    <!-- ================= PRODUCTS ================= -->
+
+    <section class="products-section">
+
+        <div class="section-title">
+
+            <h2>
+                Our Products
+            </h2>
+
+            <p>
+                Explore our latest products
+            </p>
+
+        </div>
+
+
+        <div class="products" id="products"></div>
+
+    </section>
+
+
+
+    <!-- ================= CART ================= -->
+
+    <div class="cart-panel" id="cartPanel">
+
+        <div class="cart-header">
+
+            <h2>
+                Your Cart
+            </h2>
+
+            <button class="close" onclick="closeCart()" aria-label="Close cart">
+                ×
+            </button>
+
+        </div>
+
+
+        <div id="cartItems"></div>
+
+
+        <div class="cart-total">
+            <span>Total:</span>
+            <span id="cartTotal">₹0</span>
+        </div>
+
+
+        <button class="checkout-btn" onclick="checkout()">
+            Proceed to Checkout →
+        </button>
+
+    </div>
+
+
+
+    <!-- ================= FOOTER ================= -->
+
+    <footer>
+
+        <h3 id="footerShop">
+            My Store
+        </h3>
+
+        <p>
+            Shop online with us
+        </p>
+
+    </footer>
+
+    <script>
+
+        /* =========================================
+           DATA & DASHBOARD CONNECTION
+        ========================================= */
+
+        function getStoredProducts() {
+            let raw = localStorage.getItem("products") || localStorage.getItem("obsidian_products");
+            if (raw) {
+                try {
+                    const parsed = JSON.parse(raw);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        return parsed;
+                    }
+                } catch (e) {
+                    console.error("Error reading stored products:", e);
+                }
+            }
+            return [];
+        }
+
+        let products = getStoredProducts();
+
+        let cart = [];
+        try {
+            cart = JSON.parse(localStorage.getItem("cart")) || [];
+            if (!Array.isArray(cart)) cart = [];
+        } catch (e) {
+            cart = [];
+        }
+
+        let selectedCategory = "All";
+
+        /* =========================================
+           STORE INFORMATION (SYNCED WITH DASHBOARD)
+        ========================================= */
+
+        function refreshStoreMeta() {
+            const shopName =
+                localStorage.getItem("shopName") || "My Store";
+
+            const businessType =
+                localStorage.getItem("businessType") || "Online Store";
+
+            const storeDescription =
+                localStorage.getItem("storeDescription") ||
+                "Discover our latest products and shop online.";
+
+            const storeLogo =
+                localStorage.getItem("storeLogo");
+
+            const currency =
+                localStorage.getItem("storeCurrency") || localStorage.getItem("currency") || "₹";
+
+            document.getElementById("pageTitle").textContent = shopName;
+            document.getElementById("shopName").textContent = shopName;
+            document.getElementById("businessType").textContent = businessType;
+            document.getElementById("marqueeShop").textContent = shopName;
+            document.getElementById("marqueeType").textContent = businessType;
+            document.getElementById("heroTitle").textContent = `Welcome to ${shopName}`;
+            document.getElementById("description").textContent = storeDescription;
+            document.getElementById("footerShop").textContent = shopName;
+
+            const logoEl = document.getElementById("logo");
+            if (storeLogo) {
+                logoEl.innerHTML = `<img src="${storeLogo}" alt="${shopName}">`;
+            } else {
+                logoEl.textContent = shopName.trim().charAt(0).toUpperCase() || "S";
+            }
+
+            return { currency };
+        }
+
+        let { currency } = refreshStoreMeta();
+
+
+        /* =========================================
+           GET ACTIVE PRODUCTS
+        ========================================= */
+
+        function getActiveProducts() {
+            return products.filter(product => {
+                // If status is not explicitly marked inactive/archived, treat as active
+                if (!product.status) return true;
+                const st = String(product.status).toLowerCase();
+                return st === "active";
+            });
+        }
+
+
+        /* =========================================
+           CATEGORY
+        ========================================= */
+
+        function renderCategories() {
+            const container = document.getElementById("categories");
+            const activeProducts = getActiveProducts();
+
+            const categorySet = new Set();
+            activeProducts.forEach(product => {
+                if (product.category && product.category.trim()) {
+                    categorySet.add(product.category.trim());
+                }
+            });
+
+            const categories = [
+                "All",
+                ...Array.from(categorySet)
+            ];
+
+            container.innerHTML = categories.map(category => `
+                <button
+                    class="category-btn ${selectedCategory === category ? "active" : ""}"
+                    onclick="selectCategory('${escapeQuotes(category)}')"
+                >
+                    ${category}
+                </button>
+            `).join("");
+        }
+
+        function escapeQuotes(text) {
+            return String(text).replace(/'/g, "\\'");
+        }
+
+        function selectCategory(category) {
+            selectedCategory = category;
+            renderCategories();
+            renderProducts();
+        }
+
+
+        /* =========================================
+           PRODUCTS
+        ========================================= */
+
+        function renderProducts() {
+            products = getStoredProducts();
+            const container = document.getElementById("products");
+            const search = document.getElementById("search").value.toLowerCase().trim();
+
+            let activeProducts = getActiveProducts();
+
+            /* CATEGORY FILTER */
+            if (selectedCategory !== "All") {
+                activeProducts = activeProducts.filter(
+                    product => (product.category || "").toLowerCase() === selectedCategory.toLowerCase()
+                );
+            }
+
+            /* SEARCH FILTER */
+            if (search) {
+                activeProducts = activeProducts.filter(product => {
+                    return (
+                        (product.name && product.name.toLowerCase().includes(search)) ||
+                        (product.category && product.category.toLowerCase().includes(search)) ||
+                        (product.description && product.description.toLowerCase().includes(search))
+                    );
+                });
+            }
+
+            /* EMPTY */
+            if (activeProducts.length === 0) {
+                container.innerHTML = `
+                    <div class="empty">
+                        <h2>No Products Found</h2>
+                        <p>Products added by business owner in Dashboard will show here instantly.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            /* PRODUCT CARDS */
+            container.innerHTML = activeProducts.map(product => {
+                const mrp = Number(product.mrp) || Number(product.price) || 0;
+                const sellingPrice = Number(product.sellingPrice) || Number(product.price) || 0;
+                const finalPrice = sellingPrice > 0 ? sellingPrice : mrp;
+                const stock = Number(product.stock ?? product.quantity ?? 0);
+
+                let discount = Number(product.discountPercent) || 0;
+                if (discount === 0 && mrp > sellingPrice && sellingPrice > 0) {
+                    discount = Math.round(((mrp - sellingPrice) / mrp) * 100);
+                }
+                if (discount === 0) {
+                    const discountPrice = Number(product.discountPrice) || 0;
+                    if (discountPrice > 0 && mrp > discountPrice) {
+                        discount = Math.round(((mrp - discountPrice) / mrp) * 100);
+                    }
+                }
+
+                const hasMrpDiff = mrp > sellingPrice && sellingPrice > 0;
+
+                const brandHtml = product.brand ? `<div style="font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#64748b;margin-bottom:2px;">${product.brand}</div>` : "";
+
+                const types = Array.isArray(product.types) ? product.types : [];
+                let typesHtml = "";
+                if (types.length > 0) {
+                    typesHtml = `<div class="variant-chips" data-product-id="${product.id}" style="display:flex;flex-wrap:wrap;gap:5px;margin:6px 0;">
+                        ${types.map((t, i) => `<button type="button" class="variant-chip${i === 0 ? ' selected' : ''}" data-variant="${t}" onclick="selectVariant('${product.id}','${t}', this)" style="
+                            padding:3px 10px;
+                            border-radius:999px;
+                            font-size:11px;
+                            font-weight:700;
+                            border:1.5px solid ${i === 0 ? '#0ea5e9' : 'rgba(100,116,139,0.35)'};
+                            background:${i === 0 ? 'rgba(14,165,233,0.15)' : 'rgba(255,255,255,0.4)'};
+                            color:${i === 0 ? '#0ea5e9' : '#475569'};
+                            cursor:pointer;
+                            transition:all 0.15s ease;
+                        ">${t}</button>`).join("")}
+                    </div>`;
+                }
+
+                // Render image or fallback emoji
+                let imageHtml = "";
+                if (product.image && typeof product.image === "string" && product.image.trim().length > 0) {
+                    imageHtml = `<img src="${product.image}" alt="${product.name}">`;
+                } else {
+                    const emoji = product.emoji || "📦";
+                    imageHtml = `
+                        <div style="
+                            width:100%;
+                            height:100%;
+                            display:flex;
+                            align-items:center;
+                            justify-content:center;
+                            font-size:62px;
+                            user-select:none;
+                        ">
+                            ${emoji}
+                        </div>
+                    `;
+                }
+
+                return `
+                    <div class="product">
+                        <div class="product-image">
+                            ${imageHtml}
+                            ${discount > 0 ? `<span class="discount">${discount}% OFF</span>` : ""}
+                        </div>
+
+                        <div class="product-info">
+                            ${brandHtml}
+                            <div class="category">
+                                ${product.category || "General"}
+                            </div>
+
+                            <h3>
+                                ${product.name}
+                            </h3>
+
+                            ${typesHtml}
+
+                            <p class="description">
+                                ${product.description || "Crafted with obsidian design standards."}
+                            </p>
+
+                            <div class="price">
+                                <span class="current-price">
+                                    ${currency}${finalPrice.toLocaleString()}
+                                </span>
+                                ${hasMrpDiff ? `
+                                    <span class="old-price">
+                                        ${currency}${mrp.toLocaleString()}
+                                    </span>
+                                ` : ""}
+                            </div>
+
+                            <div class="stock ${stock <= 0 ? "out-stock" : ""}">
+                                ${stock > 0 ? `${stock} in stock` : "Out of Stock"}
+                            </div>
+
+                            <button
+                                class="add-btn"
+                                ${stock <= 0 ? "disabled" : ""}
+                                onclick="addToCart('${product.id}')"
+                            >
+                                ${stock > 0 ? "Add to Cart" : "Out of Stock"}
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join("");
+        }
+
+        /* Track selected variants per product */
+        const selectedVariants = {};
+
+        function selectVariant(productId, variant, btn) {
+            selectedVariants[productId] = variant;
+            const parent = btn.parentElement;
+            if (parent) {
+                parent.querySelectorAll('.variant-chip').forEach(chip => {
+                    chip.style.border = '1.5px solid rgba(100,116,139,0.35)';
+                    chip.style.background = 'rgba(255,255,255,0.4)';
+                    chip.style.color = '#475569';
+                    chip.classList.remove('selected');
+                });
+                btn.style.border = '1.5px solid #0ea5e9';
+                btn.style.background = 'rgba(14,165,233,0.15)';
+                btn.style.color = '#0ea5e9';
+                btn.classList.add('selected');
+            }
+        }
+
+
+        /* =========================================
+           ADD TO CART
+        ========================================= */
+
+        function addToCart(productId) {
+            const product = products.find(p => String(p.id) === String(productId));
+            if (!product) return;
+
+            const stock = Number(product.stock ?? product.quantity ?? 0);
+            if (stock <= 0) {
+                alert("Sorry, this item is currently out of stock.");
+                return;
+            }
+
+            const types = Array.isArray(product.types) ? product.types : [];
+            let chosenVariant = "";
+            if (types.length > 0) {
+                chosenVariant = selectedVariants[productId] || types[0];
+            }
+
+            const cartPrice = Number(product.sellingPrice) || Number(product.price) || 0;
+
+            const cartKey = types.length > 0 ? `${productId}_${chosenVariant}` : String(productId);
+            const existing = cart.find(item => String(item.cartKey || item.id) === cartKey);
+
+            if (existing) {
+                if (existing.quantity >= stock) {
+                    alert(`Maximum available stock (${stock}) already in your cart.`);
+                    return;
+                }
+                existing.quantity++;
+            } else {
+                cart.push({
+                    id: product.id,
+                    cartKey: cartKey,
+                    name: product.name,
+                    price: cartPrice,
+                    discountPrice: Number(product.discountPrice) || 0,
+                    image: product.image || "",
+                    emoji: product.emoji || "📦",
+                    selectedVariant: chosenVariant,
+                    quantity: 1
+                });
+            }
+
+            saveCart();
+            renderCart();
+            openCart();
+        }
+
+
+        /* =========================================
+           SAVE CART
+        ========================================= */
+
+        function saveCart() {
+            localStorage.setItem("cart", JSON.stringify(cart));
+        }
+
+
+        /* =========================================
+           RENDER CART
+        ========================================= */
+
+        function renderCart() {
+            const container = document.getElementById("cartItems");
+            const count = cart.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+            document.getElementById("cartCount").textContent = count;
+
+            if (cart.length === 0) {
+                container.innerHTML = `
+                    <div class="empty" style="padding: 40px 15px; margin-top: 20px;">
+                        <h3>Your cart is empty</h3>
+                        <p>Add products to begin shopping.</p>
+                    </div>
+                `;
+                document.getElementById("cartTotal").textContent = `${currency}0`;
+                return;
+            }
+
+            container.innerHTML = cart.map((item, index) => {
+                const price = item.discountPrice > 0 ? item.discountPrice : item.price;
+                return `
+                    <div class="cart-item">
+                        <div>
+                            <strong>${item.name}</strong>${item.selectedVariant ? `<span style="font-size:11px;font-weight:700;color:#0ea5e9;background:rgba(14,165,233,0.12);padding:2px 8px;border-radius:999px;margin-left:6px;">${item.selectedVariant}</span>` : ""}
+                            <p>${currency}${price.toLocaleString()} × ${item.quantity}</p>
+                        </div>
+
+                        <button class="remove" onclick="removeFromCart(${index})">
+                            Remove
+                        </button>
+                    </div>
+                `;
+            }).join("");
+
+            const total = cart.reduce((sum, item) => {
+                const price = item.discountPrice > 0 ? item.discountPrice : item.price;
+                return sum + (price * item.quantity);
+            }, 0);
+
+            document.getElementById("cartTotal").textContent = `${currency}${total.toLocaleString()}`;
+        }
+
+
+        /* =========================================
+           REMOVE CART
+        ========================================= */
+
+        function removeFromCart(index) {
+            cart.splice(index, 1);
+            saveCart();
+            renderCart();
+        }
+
+
+        /* =========================================
+           CART OPEN / CLOSE
+        ========================================= */
+
+        function openCart() {
+            document.getElementById("cartPanel").classList.add("open");
+            renderCart();
+        }
+
+        function closeCart() {
+            document.getElementById("cartPanel").classList.remove("open");
+        }
+
+
+        /* =========================================
+           CHECKOUT
+        ========================================= */
+
+        function checkout() {
+            if (cart.length === 0) {
+                alert("Your cart is empty. Please add items before checking out.");
+                return;
+            }
+            window.location.href = "checkout.html";
+        }
+
+
+        /* =========================================
+           INITIALIZE & LIVE REAL-TIME SYNC
+        ========================================= */
+
+        refreshStoreMeta();
+        renderCategories();
+        renderProducts();
+        renderCart();
+
+        // Fetch live store data from backend via GET /api/public/store/:slug
+        async function fetchLiveStoreData() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const slug = urlParams.get("slug") || localStorage.getItem("storeSlug");
+            if (!slug) return;
+
+            try {
+                const res = await fetch(`${window.location.origin}/api/public/store/${encodeURIComponent(slug)}`);
+
+                if (!res.ok) {
+                    // 404 = store not found, 500 = server error — fall back to localStorage gracefully
+                    console.warn(`[Storefront] Backend returned ${res.status} for slug "${slug}". Displaying active catalog.`);
+                    let activeProds = getStoredProducts();
+                    if (!Array.isArray(activeProds) || activeProds.length === 0) {
+                        const defaultShowcase = [
+                            { id: 101, name: "Monolith Architectural Overcoat", price: 450, sellingPrice: 450, mrp: 520, stock: 12, emoji: "🧥", category: "Apparel", brand: "Obsidian", description: "Tailored wool-blend architectural overcoat in obsidian black with structured silhouette." },
+                            { id: 102, name: "Prism Ceramic Watch", price: 320, sellingPrice: 320, mrp: 380, stock: 8, emoji: "⌚", category: "Accessories", brand: "Obsidian", description: "Matte black ceramic casing with sapphire glass crystal and Swiss quartz movement." },
+                            { id: 103, name: "Apex Calfskin High-Top", price: 210, sellingPrice: 210, mrp: 260, stock: 15, emoji: "👟", category: "Footwear", brand: "Obsidian", description: "Full-grain calfskin leather high-top silhouette with geometric sculpted sole." },
+                            { id: 104, name: "Vortex Titanium Ring", price: 95, sellingPrice: 95, mrp: 120, stock: 24, emoji: "💍", category: "Jewelry", brand: "Obsidian", description: "Grade 5 brushed titanium band with beveled edge detailing and obsidian inlay." }
+                        ];
+                        products = defaultShowcase;
+                        localStorage.setItem("products", JSON.stringify(defaultShowcase));
+                        localStorage.setItem("obsidian_products", JSON.stringify(defaultShowcase));
+                    } else {
+                        products = activeProds;
+                    }
+                    refreshStoreMeta();
+                    renderCategories();
+                    renderProducts();
+                    return;
+                }
+
+                const data = await res.json();
+
+                // ── Hydrate store metadata from backend ──
+                if (data.store) {
+                    const s = data.store;
+                    if (s.name) { localStorage.setItem("shopName", s.name); }
+                    if (s.business_type) localStorage.setItem("businessType", s.business_type);
+                    if (s.currency) { localStorage.setItem("storeCurrency", s.currency); localStorage.setItem("currency", s.currency); }
+                    if (s.id) localStorage.setItem("obsidian_store_id", s.id);
+                    if (s.slug) localStorage.setItem("storeSlug", s.slug);
+                    if (s.logo_url) localStorage.setItem("storeLogo", s.logo_url);
+                    else if (s.logo_url === null) localStorage.removeItem("storeLogo");
+                    if (s.banner_url) localStorage.setItem("storeBanner", s.banner_url);
+                    else if (s.banner_url === null) localStorage.removeItem("storeBanner");
+                    if (s.description) localStorage.setItem("storeDescription", s.description);
+                    if (s.selected_template_id) localStorage.setItem("obsidian_selected_template_id", s.selected_template_id);
+                }
+
+                // ── Hydrate products from backend ──
+                if (Array.isArray(data.products) && data.products.length > 0) {
+                    const formattedProducts = data.products.map(p => ({
+                        id: p.client_id !== undefined ? p.client_id : p.id,
+                        name: p.name,
+                        price: p.price || p.sellingPrice || p.selling_price || 0,
+                        mrp: p.mrp || p.price || 0,
+                        sellingPrice: p.sellingPrice || p.selling_price || p.price || 0,
+                        discountPercent: p.discountPercent || p.discount_percent || 0,
+                        discountPrice: p.discount_price || p.discountPrice || null,
+                        stock: p.stock !== undefined ? p.stock : 10,
+                        emoji: p.emoji || '📦',
+                        brand: p.brand || null,
+                        types: Array.isArray(p.types) ? p.types : [],
+                        category: p.category || 'General',
+                        description: p.description || '',
+                        image: p.image_url || p.image || null,
+                        status: p.status || 'active'
+                    }));
+                    products = formattedProducts;
+                    localStorage.setItem("products", JSON.stringify(formattedProducts));
+                    localStorage.setItem("obsidian_products", JSON.stringify(formattedProducts));
+                }
+
+                // Re-render with fresh backend data
+                refreshStoreMeta();
+                renderCategories();
+                renderProducts();
+            } catch (err) {
+                // Network error — fall back gracefully to localStorage, no fake success
+                console.warn("[Storefront] Network error fetching live store data:", err);
+            }
+        }
+
+        fetchLiveStoreData();
+
+        // Listen for store modifications in other tabs or windows (e.g. businessman adding products in Dashboard)
+        function liveSync() {
+            products = getStoredProducts();
+            const meta = refreshStoreMeta();
+            currency = meta.currency;
+            renderCategories();
+            renderProducts();
+            try {
+                cart = JSON.parse(localStorage.getItem("cart")) || [];
+            } catch (e) {
+                cart = [];
+            }
+            renderCart();
+        }
+
+        window.addEventListener("storage", liveSync);
+        window.addEventListener("focus", liveSync);
+
+    </script>
+
+</body>
+
+</html>
