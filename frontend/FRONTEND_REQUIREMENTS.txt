@@ -1,0 +1,226 @@
+================================================================================
+OBSIDIAN COMMERCE ENGINE - FRONTEND REQUIREMENTS SPECIFICATION
+================================================================================
+Generated for: OBSIDIAN Digital Commerce Platform (Frontend Architecture)
+Framework: Next.js 16 (App Router + Turbopack)
+UI Library: React 19 / TypeScript 5
+Styling: Vanilla CSS Design System + Tailwind CSS v4
+Motion & 3D: Lenis Momentum Scroll, Framer Motion, GSAP, Three.js / React Three Fiber
+
+--------------------------------------------------------------------------------
+1. TECHNOLOGY STACK & SYSTEM PREREQUISITES
+--------------------------------------------------------------------------------
+- Framework: Next.js 16.3.3 (React Server & Client Components, Turbopack)
+- Core Language: TypeScript 5.0+ (Strict mode enabled)
+- UI Library: React 19.2.8 & React DOM 19.2.8
+- Motion Physics:
+  * Lenis v1.3.26 (Inertial smooth scrolling interpolation)
+  * Framer Motion v13.1.1 (Component entrance & micro-interactions)
+  * GSAP v3.15.0 (Timeline & kinetic transformations)
+- 3D Rendering Canvas:
+  * Three.js v0.185.1
+  * @react-three/fiber v9.7.0
+  * @react-three/drei v10.7.8
+- Icons: Lucide React v1.35.0
+- CSS Engine: Tailwind CSS v4 (@tailwindcss/postcss) & Glassmorphic Custom Properties
+- Runtime Requirements: Node.js >= 18.17.0, npm >= 9.0.0
+
+--------------------------------------------------------------------------------
+2. APPLICATION ROUTING & VIEWPORT HIERARCHY
+--------------------------------------------------------------------------------
+| Route Path       | Source File                     | Description & Surface Target                               |
+| :--------------- | :------------------------------ | :---------------------------------------------------------- |
+| `/`              | `src/app/page.tsx`              | High-fashion editorial showcase with kinetic physics & 3D   |
+| `/home` (`/p1`)  | `src/app/p1/page.tsx`           | Merchant store onboarding, address geolocation & setup flow |
+| `/dashboard` (`/p2`)| `src/app/p2/page.tsx`        | Merchant command center: real-time analytics & catalog ops  |
+| `/store/[slug]`  | `src/app/store/[slug]/page.tsx` | Autonomous public buyer storefront with cart & checkout    |
+| `/checkout`      | `src/app/checkout/page.tsx`     | Dedicated full-page order completion & receipt generator    |
+| `/login`         | `src/app/login/page.tsx`        | Merchant authentication & password recovery hub             |
+| `/p3`            | `public/p3.html`                | Dedicated interactive WebGL / Three.js 3D catalog showcase  |
+
+Rewrite & Redirect Map (in next.config.ts):
+- `/home`       -> Rewritten/redirected to `/p1`
+- `/dashboard`  -> Rewritten/redirected to `/p2`
+- `/p3`         -> Rewritten to `/p3.html`
+- `/api/:path*` -> Proxied to `${BACKEND_URL}/api/:path*`
+- `/health`     -> Proxied to `${BACKEND_URL}/health`
+- `/docs`       -> Proxied to `${BACKEND_URL}/api/docs`
+
+--------------------------------------------------------------------------------
+3. DETAILED COMPONENT ARCHITECTURE & SURFACES
+--------------------------------------------------------------------------------
+
+A. Editorial Landing Layer (`/`)
+- SiteHeader (`src/components/SiteHeader.tsx`):
+  * Sticky glassmorphic navigation masthead
+  * Interactive navigation links with hover micro-animations
+  * Quick status indicator & launch modal trigger
+- HeroSection (`src/components/HeroSection.tsx`):
+  * High-impact typography with fluid responsive scaling
+  * Kinetic pointer tracker & interactive cursor spotlight
+  * Call-to-actions ("Launch Store", "Explore Showcase")
+- StorySection (`src/components/StorySection.tsx`):
+  * Editorial narrative grid with alternating media & typographic elements
+  * GSAP scroll-triggered parallax effects
+- DetailSection (`src/components/DetailSection.tsx`):
+  * Feature matrix highlighting autonomous storefront generation
+  * Interactive feature cards with subtle border glows
+- TypographySection (`src/components/TypographySection.tsx`):
+  * Massive kinetic text animations with variable font-weight interpolation
+- FinalSection (`src/components/FinalSection.tsx`):
+  * Closing editorial statement with interactive particle background
+- SiteFooter (`src/components/SiteFooter.tsx`):
+  * Clean copyright, system telemetry, and social navigation links
+- CustomCursor (`src/components/CustomCursor.tsx`):
+  * Physics-based dual-ring reticle cursor tracking mouse position & velocity
+  * Adaptive sizing when hovering over clickable elements
+- SmoothScroll (`src/components/SmoothScroll.tsx`):
+  * Wraps root layout with Lenis momentum physics provider
+
+B. Merchant Onboarding Surface (`/home` or `/p1`)
+- Step-by-step store creator:
+  * Store Name & Slug generator (with real-time slug availability check)
+  * Business category selector (Fashion, Tech, Luxury, Artisan, etc.)
+  * Currency configuration (Default: ₹ INR, $, €, £)
+  * Location & Address selection (Manual input or Google Maps Geocoding)
+  * Brand asset upload preview (Logo, Banner image)
+  * Storefront template selection (Minimal, Glass, High-Contrast, Darkroom)
+  * Direct synchronization with `POST /api/stores` backend endpoint
+
+C. Merchant Command Center (`/dashboard` or `/p2`)
+- Viewport-optimized layout: Two-column symmetric grid fitting 100vh without vertical fatigue
+- Live Interactive SVG Analytics:
+  * Dynamic timeframe toggling (`Daily`, `Weekly`, `Monthly`, `Yearly`)
+  * Pure SVG area curves with gradient fills and live hover data points
+  * Revenue, Order Count, Average Order Value (AOV), and Conversion Rate cards
+- Catalog & Inventory Telemetry:
+  * Live product grid with thumbnail, stock level, price, and category badges
+  * Low-stock warnings (< 5 units) with instant "+10 Restock" quick action
+  * Add/Edit Product modal with emoji picker, image upload, and category tagging
+  * Delete product with optimistic UI update
+- Order Fulfillment Engine:
+  * Real-time order list with customer details, item counts, and totals
+  * Status transition selector (`Pending` -> `Processing` -> `Completed` -> `Cancelled`)
+  * Delete/Archive order capability
+- Storefront Hub & Sharing:
+  * One-click public storefront URL copy to clipboard
+  * QR Code generator modal for mobile storefront testing
+  * Live store preview launcher (`/store/[slug]`)
+  * Store Branding & Media Assets management (Supabase Storage upload integration)
+
+D. Autonomous Buyer Storefront (`/store/[slug]`)
+- Dynamic route loading store data via `GET /api/stores/[slug]`
+- Public product catalog with category filtering and keyword search
+- Interactive Product Card:
+  * Image carousel / emoji fallback
+  * Stock badge ("In Stock", "Only X Left", "Out of Stock")
+  * Price display with MRP markdown and discount percentage
+  * "Add to Bag" instant action with cart count badge animation
+- Slide-over Cart Drawer:
+  * Real-time cart calculation (Subtotal, Tax, Shipping, Grand Total)
+  * Quantity increment/decrement/remove actions
+  * LocalStorage cart persistence per store
+- Integrated Checkout Modal:
+  * Customer Name, Email, Phone, and Delivery Address inputs
+  * Order review and placement via `POST /api/orders`
+  * Instant receipt generation and order tracking ID
+
+--------------------------------------------------------------------------------
+4. STATE MANAGEMENT & LOCALSTORAGE CONTRACTS
+--------------------------------------------------------------------------------
+The frontend uses synchronous LocalStorage for offline resiliency, fallback state,
+and session management:
+
+| Key Name              | Data Type | Purpose & Lifecycle                                         |
+| :-------------------- | :-------- | :---------------------------------------------------------- |
+| `obsidian_token`      | String    | JWT Bearer token obtained from login/registration           |
+| `obsidian_session`    | JSON Object| Current authenticated merchant profile (`id`, `email`, `role`)|
+| `obsidian_store`      | JSON Object| Currently active store configuration & branding settings    |
+| `obsidian_products`   | JSON Array| Cached catalog items for offline demo mode                  |
+| `obsidian_orders`     | JSON Array| Cached orders for instant rendering and optimistic updates  |
+| `obsidian_cart_[slug]`| JSON Array| Per-store customer shopping cart state (`items`, `quantities`)|
+
+--------------------------------------------------------------------------------
+5. BACKEND API CONSUMPTION & CLIENT CONTRACT (`src/lib/api.ts`)
+--------------------------------------------------------------------------------
+All API calls pass through `API_BASE_URL` with automatic Bearer token injection:
+
+- Base URL Resolution:
+  1. `process.env.NEXT_PUBLIC_BACKEND_URL`
+  2. `process.env.NEXT_PUBLIC_API_URL`
+  3. Fallback: `https://obsidian-backend-1.onrender.com`
+
+- Auth Header:
+  `Authorization: Bearer <obsidian_token>` (injected on all protected requests)
+
+- Consumed Endpoints:
+  * `POST   /api/auth/register`       - Register new merchant account
+  * `POST   /api/auth/login`          - Merchant login and token issuance
+  * `GET    /api/auth/me`             - Verify token and fetch merchant profile
+  * `POST   /api/stores`              - Create new store configuration
+  * `GET    /api/stores/my-store`     - Fetch merchant's active store
+  * `PUT    /api/stores/[id]`         - Update store settings & branding
+  * `GET    /api/stores/[slug]`       - Fetch public store data by slug
+  * `GET    /api/products`            - List products for active store
+  * `POST   /api/products`            - Add new product to store
+  * `PUT    /api/products/[id]`       - Update existing product or stock
+  * `DELETE /api/products/[id]`       - Remove product from store
+  * `GET    /api/orders`              - List incoming store orders
+  * `POST   /api/orders`              - Place customer order from storefront
+  * `PATCH  /api/orders/[id]/status`  - Update order fulfillment status
+  * `GET    /api/analytics/dashboard` - Fetch aggregated revenue and sales trends
+
+--------------------------------------------------------------------------------
+6. STYLING SYSTEM & DESIGN TOKENS
+--------------------------------------------------------------------------------
+- Design Paradigm: Editorial Luxury Glassmorphism & High-Contrast Cyber Darkroom
+- Color Palette:
+  * Background Deep: `#050505` / `#0a0a0c`
+  * Glass Surface: `rgba(255, 255, 255, 0.03)` to `rgba(255, 255, 255, 0.08)`
+  * Glass Border: `rgba(255, 255, 255, 0.12)`
+  * Text Primary: `#ffffff` / `#f3f4f6`
+  * Text Muted: `#9ca3af` / `#6b7280`
+  * Accent Emerald: `#10b981` (Success, Stock Positive, Restock Action)
+  * Accent Amber: `#f59e0b` (Pending, Low Stock Alerts)
+  * Accent Rose: `#f43f5e` (Cancellations, Deletions, Urgent Alerts)
+  * Accent Indigo / Violet: `#6366f1` / `#8b5cf6` (Branding & Active Highlights)
+- Typography:
+  * Editorial Serif / Modern Display: Syne, Cinzel, or Playfair Display
+  * UI Body & Telemetry: Inter, Geist Sans, Roboto Mono for metrics
+- Blur & Glass Effects:
+  * Backdrop filter: `blur(16px)` to `blur(24px)`
+  * Specular border highlights with 1px semi-transparent gradients
+
+--------------------------------------------------------------------------------
+7. ENVIRONMENT VARIABLES SPECIFICATION (.env.local)
+--------------------------------------------------------------------------------
+```env
+# Backend API URL (Default production backend on Render)
+# For local development with a local backend, change to: http://localhost:8000
+NEXT_PUBLIC_BACKEND_URL=https://obsidian-backend-1.onrender.com
+NEXT_PUBLIC_API_URL=https://obsidian-backend-1.onrender.com
+
+# Optional: Supabase Direct Storage Integration (if uploading from client)
+NEXT_PUBLIC_SUPABASE_URL=https://<your-project-ref>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<your-supabase-anon-key>
+```
+
+--------------------------------------------------------------------------------
+8. SCRIPTS & COMMANDS REFERENCE
+--------------------------------------------------------------------------------
+- Install Dependencies:
+  `npm install`
+- Start Turbopack Dev Server (Default port 3000):
+  `npm run dev`
+- Run TypeScript Static Analysis:
+  `npx tsc --noEmit`
+- Production Build:
+  `npm run build`
+- Production Server:
+  `npm run start`
+- Run ESLint:
+  `npm run lint`
+
+================================================================================
+END OF SPECIFICATION
+================================================================================
