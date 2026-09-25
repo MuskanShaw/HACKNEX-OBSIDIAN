@@ -148,7 +148,7 @@ All API calls pass through `API_BASE_URL` with automatic Bearer token injection:
 - Base URL Resolution:
   1. `process.env.NEXT_PUBLIC_BACKEND_URL`
   2. `process.env.NEXT_PUBLIC_API_URL`
-  3. Fallback: `https://obsidian-backend-1.onrender.com`
+  3. Fallback: `https://hacknex-obsidian.onrender.com`
 
 - Auth Header:
   `Authorization: Bearer <obsidian_token>` (injected on all protected requests)
@@ -197,8 +197,8 @@ All API calls pass through `API_BASE_URL` with automatic Bearer token injection:
 ```env
 # Backend API URL (Default production backend on Render)
 # For local development with a local backend, change to: http://localhost:8000
-NEXT_PUBLIC_BACKEND_URL=https://obsidian-backend-1.onrender.com
-NEXT_PUBLIC_API_URL=https://obsidian-backend-1.onrender.com
+NEXT_PUBLIC_BACKEND_URL=https://hacknex-obsidian.onrender.com
+NEXT_PUBLIC_API_URL=https://hacknex-obsidian.onrender.com
 
 # Optional: Supabase Direct Storage Integration (if uploading from client)
 NEXT_PUBLIC_SUPABASE_URL=https://<your-project-ref>.supabase.co

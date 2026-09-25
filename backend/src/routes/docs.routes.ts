@@ -20,7 +20,7 @@ export const swaggerSpec = {
       description: 'Current Origin (Auto)',
     },
     {
-      url: 'https://obsidian-backend-1.onrender.com',
+      url: 'https://hacknex-obsidian.onrender.com',
       description: 'Production Backend (Render)',
     },
     {

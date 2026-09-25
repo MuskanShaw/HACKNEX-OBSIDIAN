@@ -1,12 +1,36 @@
 /**
  * OBSIDIAN API Client
- * Configured for https://obsidian-backend-1.onrender.com
+ * Configured for https://hacknex-obsidian.onrender.com
  */
+
+import { supabase } from "./supabase";
 
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL ||
   process.env.NEXT_PUBLIC_API_URL ||
-  "https://obsidian-backend-1.onrender.com";
+  "https://hacknex-obsidian.onrender.com";
+
+// Safe development logging for debugging API target
+if (typeof window !== "undefined" && process.env.NODE_ENV !== "production") {
+  console.log(`[OBSIDIAN API] Configured Base URL: ${API_BASE_URL}`);
+}
+
+export async function getValidAuthToken(): Promise<string | null> {
+  if (typeof window !== "undefined") {
+    try {
+      // 1. Check live Supabase session (auto-refreshes expired access tokens)
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        localStorage.setItem("obsidian_token", session.access_token);
+        return session.access_token;
+      }
+    } catch {
+      // Fallback to stored tokens if supabase client is offline
+    }
+    return getStoredToken();
+  }
+  return null;
+}
 
 export function getStoredToken(): string | null {
   if (typeof window !== "undefined") {
@@ -46,8 +70,12 @@ export async function apiRequest<T = any>(
   const path = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
   const url = `${API_BASE_URL}${path}`;
 
-  const token = getStoredToken();
-  const user = getStoredUser();
+  // Priority: explicit header token > active Supabase session token > localStorage
+  const explicitAuth = (options.headers as Record<string, string>)?.Authorization;
+  let token = explicitAuth ? explicitAuth.replace(/^Bearer\s+/i, "") : null;
+  if (!token) {
+    token = await getValidAuthToken();
+  }
 
   const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
 
@@ -56,6 +84,11 @@ export async function apiRequest<T = any>(
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...((options.headers as Record<string, string>) || {}),
   };
+
+  // Safe development logging without leaking sensitive payloads or tokens
+  if (typeof window !== "undefined" && process.env.NODE_ENV !== "production") {
+    console.log(`[OBSIDIAN API] ${options.method || "GET"} -> ${url}`);
+  }
 
   const res = await fetch(url, {
     ...options,
