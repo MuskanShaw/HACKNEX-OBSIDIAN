@@ -10,9 +10,9 @@ const envSchema = z.object({
 
 
   // Supabase Configuration
-  SUPABASE_URL: z.string().url().default('https://sample-project.supabase.co'),
+  SUPABASE_URL: z.string().url().default('https://vrgendezcvpzjuhcuhfo.supabase.co'),
   SUPABASE_SERVICE_ROLE_KEY: z.string().default('sample_service_role_key'),
-  SUPABASE_ANON_KEY: z.string().optional(),
+  SUPABASE_ANON_KEY: z.string().optional().default('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZyZ2VuZGV6Y3Zwemp1aGN1aGZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzNDU3MTcsImV4cCI6MjEwMzkyMTcxN30.Qfo4AkAFjWufF-IcCdHxV2cNFh5RmNRJfOUef3gXfIs'),
   SUPABASE_PUBLISHABLE_KEY: z.string().optional(),
   SUPABASE_JWT_SECRET: z.string().optional(),
   SUPABASE_STORAGE_BUCKET: z.string().default('store-assets'),
@@ -28,7 +28,7 @@ const envSchema = z.object({
 
   // Google Gemini AI Integration
   GEMINI_API_KEY: z.string().optional().default(''),
-  GEMINI_MODEL: z.string().optional().default('gemini-3.5-flash-lite'),
+  GEMINI_MODEL: z.string().optional().default('gemini-2.5-flash'),
 });
 
 const parsedEnv = envSchema.safeParse(process.env);

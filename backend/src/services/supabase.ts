@@ -5,7 +5,12 @@ let supabaseClient: SupabaseClient | null = null;
 
 export function getSupabaseClient(): SupabaseClient {
   if (!supabaseClient) {
-    supabaseClient = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+    const key =
+      env.SUPABASE_SERVICE_ROLE_KEY && !env.SUPABASE_SERVICE_ROLE_KEY.includes('sample_service_role_key')
+        ? env.SUPABASE_SERVICE_ROLE_KEY
+        : env.SUPABASE_ANON_KEY || env.SUPABASE_PUBLISHABLE_KEY || 'sample_service_role_key';
+
+    supabaseClient = createClient(env.SUPABASE_URL, key, {
       auth: {
         persistSession: false,
         autoRefreshToken: false,
@@ -37,7 +42,7 @@ export const isLiveSupabaseConfigured = (): boolean => {
   return (
     Boolean(env.SUPABASE_URL) &&
     !env.SUPABASE_URL.includes('sample-project') &&
-    Boolean(env.SUPABASE_SERVICE_ROLE_KEY) &&
-    !env.SUPABASE_SERVICE_ROLE_KEY.includes('sample_service_role_key')
+    ((Boolean(env.SUPABASE_SERVICE_ROLE_KEY) && !env.SUPABASE_SERVICE_ROLE_KEY.includes('sample_service_role_key')) ||
+      Boolean(env.SUPABASE_ANON_KEY))
   );
 };

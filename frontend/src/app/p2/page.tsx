@@ -130,6 +130,13 @@ export const DEFAULT_STORE_TEMPLATES: StoreTemplate[] = [
 ];
 
 
+const isValidImageUrl = (url?: string | null): boolean => {
+  if (!url || typeof url !== "string") return false;
+  const trimmed = url.trim();
+  if (!trimmed || trimmed === "undefined" || trimmed === "null" || trimmed === "[object Object]") return false;
+  return trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("/") || trimmed.startsWith("data:");
+};
+
 export default function DashboardPage() {
   const router = useRouter();
 
@@ -269,7 +276,7 @@ export default function DashboardPage() {
       (typeof window !== "undefined" ? localStorage.getItem("obsidian_store_id") : "") ||
       "";
     const tf = targetTimeframe || chartTimeframe;
-    if (!activeStoreId || activeStoreId === "default") return;
+    if (!activeStoreId || activeStoreId === "default" || activeStoreId === "undefined" || activeStoreId === "null") return;
 
     setAnalyticsLoading(true);
     setAnalyticsError(null);
@@ -385,6 +392,10 @@ export default function DashboardPage() {
         storedCurrency = localStorage.getItem("storeCurrency") || localStorage.getItem("currency") || "₹";
 
         storedStoreId = localStorage.getItem("obsidian_store_id") || "";
+        if (storedStoreId === "undefined" || storedStoreId === "null") {
+          storedStoreId = "";
+          localStorage.removeItem("obsidian_store_id");
+        }
         if (storedStoreId) setBackendStoreId(storedStoreId);
 
         const storedSlug = localStorage.getItem("storeSlug") || "";
@@ -438,8 +449,12 @@ export default function DashboardPage() {
         let storeData: any = state.store || null;
 
         // Fallback: If storeData is missing from state but storedStoreId exists, fetch store directly
-        const activeStoreId = storeData?.id || storedStoreId;
-        if (!storeData && activeStoreId && activeStoreId !== "default") {
+        const activeStoreId = (storeData?.id && storeData.id !== "undefined" && storeData.id !== "null")
+          ? storeData.id
+          : (storedStoreId && storedStoreId !== "undefined" && storedStoreId !== "null")
+            ? storedStoreId
+            : "";
+        if (!storeData && activeStoreId && activeStoreId !== "default" && activeStoreId !== "undefined" && activeStoreId !== "null") {
           try {
             const detailRes = await api.getStore(activeStoreId);
             if (detailRes?.store || detailRes?.formattedStore) {
@@ -869,7 +884,7 @@ export default function DashboardPage() {
         let serverProducts: Product[] = [];
         if (Array.isArray(state.products) && state.products.length > 0) {
           serverProducts = state.products;
-        } else if (!state.products && activeStoreId && activeStoreId !== "default") {
+        } else if (!state.products && activeStoreId && activeStoreId !== "default" && activeStoreId !== "undefined" && activeStoreId !== "null") {
           try {
             const prodRes = await api.getProducts(activeStoreId);
             if (Array.isArray(prodRes?.products) && prodRes.products.length > 0) {
@@ -927,7 +942,7 @@ export default function DashboardPage() {
         let serverOrders: Order[] = [];
         if (Array.isArray(state.orders) && state.orders.length > 0) {
           serverOrders = state.orders;
-        } else if (!state.orders && activeStoreId && activeStoreId !== "default") {
+        } else if (!state.orders && activeStoreId && activeStoreId !== "default" && activeStoreId !== "undefined" && activeStoreId !== "null") {
           try {
             const orderRes = await api.getOrders(activeStoreId);
             const fetched = Array.isArray(orderRes)
@@ -1094,7 +1109,7 @@ export default function DashboardPage() {
     triggerToast("Compiling storefront & deploying to Vercel... 🚀");
     try {
       const targetStoreId = backendStoreId || localStorage.getItem("obsidian_store_id") || "default";
-      if (!targetStoreId || targetStoreId === "default") {
+      if (!targetStoreId || targetStoreId === "default" || targetStoreId === "undefined" || targetStoreId === "null") {
         throw new Error("Valid backend store ID required for deployment");
       }
       const res = await api.deployStore(targetStoreId);
@@ -2820,7 +2835,7 @@ export default function DashboardPage() {
                           <div key={item.id} className="stitch-stock-item">
                             <div className="stitch-stock-left">
                               <div className="stitch-stock-thumb" style={{ overflow: "hidden" }}>
-                                {item.image ? (
+                                {isValidImageUrl(item.image) ? (
                                   <img src={item.image} alt={item.name} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "6px" }} />
                                 ) : (
                                   item.emoji || "📦"
@@ -3083,7 +3098,7 @@ export default function DashboardPage() {
                   <div key={product.id} className="db-item-row">
                     <div className="db-item-main">
                       <div className="db-item-emoji" style={{ overflow: "hidden" }}>
-                        {product.image ? (
+                        {isValidImageUrl(product.image) ? (
                           <img src={product.image} alt={product.name} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "8px" }} />
                         ) : (
                           product.emoji || "📦"
@@ -3548,7 +3563,7 @@ export default function DashboardPage() {
                       )}
                     </div>
                     <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
-                      {logoUrl ? (
+                      {isValidImageUrl(logoUrl) ? (
                         <div style={{ width: "52px", height: "52px", borderRadius: "12px", overflow: "hidden", boxShadow: "var(--nm-shadow-out)", border: "1px solid rgba(255,255,255,0.8)", flexShrink: 0 }}>
                           <img src={logoUrl} alt="Store logo" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                         </div>
@@ -3599,7 +3614,7 @@ export default function DashboardPage() {
                       )}
                     </div>
                     <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
-                      {bannerUrl ? (
+                      {isValidImageUrl(bannerUrl) ? (
                         <div style={{ width: "76px", height: "52px", borderRadius: "12px", overflow: "hidden", boxShadow: "var(--nm-shadow-out)", border: "1px solid rgba(255,255,255,0.8)", flexShrink: 0 }}>
                           <img src={bannerUrl} alt="Store banner" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                         </div>
@@ -3935,7 +3950,7 @@ export default function DashboardPage() {
                 {/* LEFT: Product Image Upload */}
                 <div>
                   <label className="hand-ref-img-box" htmlFor="hand-ref-file-input">
-                    {formImage ? (
+                    {isValidImageUrl(formImage) ? (
                       <img src={formImage} alt="Preview" className="hand-ref-img-preview" />
                     ) : (
                       <div className="hand-ref-img-placeholder">
@@ -4291,7 +4306,7 @@ export default function DashboardPage() {
               {products.map((prod) => (
                 <div key={prod.id} className="store-product-card">
                   <div className="store-product-emoji" style={{ overflow: "hidden" }}>
-                    {prod.image ? (
+                    {isValidImageUrl(prod.image) ? (
                       <img src={prod.image} alt={prod.name} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "8px" }} />
                     ) : (
                       prod.emoji || "📦"

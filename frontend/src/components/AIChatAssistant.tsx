@@ -6,14 +6,9 @@ import {
   Sparkles,
   Send,
   X,
-  HelpCircle,
-  Package,
-  Layers,
-  ShoppingBag,
-  TrendingUp,
-  Store,
   ChevronRight,
 } from "lucide-react";
+import { api } from "@/lib/api";
 import "./AIChatAssistant.css";
 
 export interface AIChatProduct {
@@ -70,10 +65,10 @@ interface Message {
 
 const QUICK_ACTIONS = [
   { label: "Help me add a product", query: "How do I add a product?" },
+  { label: "Check my low stock", query: "Which products are low in stock?" },
   { label: "How do I manage inventory?", query: "How do I manage inventory?" },
   { label: "Explain my dashboard", query: "Explain my dashboard" },
-  { label: "Suggest improvements", query: "Suggest improvements" },
-  { label: "Website help", query: "How does this website work?" },
+  { label: "Product suggestions", query: "What product suggestions or improvements do you have for my store?" },
 ];
 
 function getFormattedTime(): string {
@@ -110,7 +105,6 @@ export default function AIChatAssistant({
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const thinkingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Auto-scroll to newest message
   useEffect(() => {
@@ -129,220 +123,34 @@ export default function AIChatAssistant({
     }
   }, [isOpen]);
 
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (thinkingTimeoutRef.current) {
-        clearTimeout(thinkingTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  // Intelligent Local Response Generator based on actual P2 Dashboard Architecture
-  const generateResponse = (
-    query: string
-  ): { text: string; actionHint?: Message["actionHint"] } => {
-    const q = query.toLowerCase().trim();
-
-    // ── Topic A: Website / Dashboard Help ──
+  // Infer contextual navigation shortcut based on assistant guidance
+  const inferActionHint = (replyText: string): Message["actionHint"] | undefined => {
+    const lower = replyText.toLowerCase();
     if (
-      q.includes("how does this website work") ||
-      q.includes("how do i use") ||
-      q.includes("what can i do here") ||
-      q.includes("explain my dashboard") ||
-      q.includes("website help") ||
-      q.includes("dashboard help") ||
-      q.includes("walkthrough") ||
-      q.includes("guide")
+      (lower.includes("add a product") || lower.includes("'+ add product'") || lower.includes("add product modal")) &&
+      onOpenAddProduct
     ) {
-      return {
-        text:
-          "The OBSIDIAN Dashboard gives you full autonomy over your digital commerce operations through 5 specialized command sections:\n\n" +
-          "1. 📊 Overview: View real-time revenue analytics (Daily, Weekly, Monthly, Yearly), Average Order Value, Conversion Rate, and latest customer orders.\n\n" +
-          "2. 📦 Products: Full catalog control. Create items, upload photos, set MRP vs Selling prices, and use quick +10 Restock buttons.\n\n" +
-          "3. 💳 Orders: Live incoming customer orders. Inspect details and update fulfillment stages (Pending ➔ Processing ➔ Completed).\n\n" +
-          "4. ⚙️ Settings: Configure store identity (Shop Name, Owner Name, Category, Address with Google Maps integration, Currency, Brand Logo & Banner), and switch Storefront Templates.\n\n" +
-          "5. 🚀 Deployment: Instant storefront compilation, custom subdomain link, and a mobile QR code generator for buyer testing.",
-        actionHint: onNavigateTab ? { label: "Go to Overview Tab", tab: "overview" } : undefined,
-      };
+      return { label: "Open Add Product Modal", triggerModal: true };
     }
-
-    // ── Topic B: Add Product Assistance ──
-    if (
-      q.includes("add product") ||
-      q.includes("add a product") ||
-      q.includes("create product") ||
-      q.includes("how to add product") ||
-      q.includes("how do i add") ||
-      q.includes("new product") ||
-      q.includes("upload product")
-    ) {
-      return {
-        text:
-          "To add a product to your catalog:\n\n" +
-          "1. Open the Products section in the sidebar.\n" +
-          "2. Click the '+ Add Product' button.\n" +
-          "3. Fill in the product details:\n" +
-          "   • Product Name: Title displayed on your public storefront.\n" +
-          "   • Brand: Select from existing brands (Nike, Zara, Apple, Obsidian, etc.) or type a custom brand.\n" +
-          "   • Category & Types: Assign tags and classification.\n" +
-          "   • MRP & Selling Price: Enter base and discounted prices (discount % computes automatically).\n" +
-          "   • Stock: Initial available quantity (defaults to 10).\n" +
-          "   • Product Emoji: Visual badge representation (e.g. 🧥, ⌚, 👟).\n" +
-          "   • Image: Provide a direct URL or upload an asset directly.\n" +
-          "   • Description: Informative details for storefront buyers.\n" +
-          "4. Click Save Product. It synchronizes immediately with your public store!",
-        actionHint: onOpenAddProduct
-          ? { label: "Open Add Product Modal", triggerModal: true }
-          : onNavigateTab
-          ? { label: "Go to Products Tab", tab: "products" }
-          : undefined,
-      };
+    if (lower.includes("products tab") || lower.includes("products section") || lower.includes("catalog")) {
+      if (onNavigateTab) return { label: "Go to Products Tab", tab: "products" };
     }
-
-    // ── Topic C: Inventory Assistance ──
-    if (
-      q.includes("stock") ||
-      q.includes("inventory") ||
-      q.includes("how much stock") ||
-      q.includes("low stock") ||
-      q.includes("out of stock") ||
-      q.includes("units") ||
-      q.includes("inventory help") ||
-      q.includes("manage inventory")
-    ) {
-      const totalProds = products.length;
-      if (totalProds === 0) {
-        return {
-          text:
-            "Your store currently has no products in inventory.\n\n" +
-            "You can stock your shelves by heading to the Products tab and clicking '+ Add Product'. Once items are added, you can track units, get low-stock notifications, and restock with one click!",
-          actionHint: onNavigateTab ? { label: "Go to Products Tab", tab: "products" } : undefined,
-        };
-      }
-
-      const totalUnits = products.reduce((acc, p) => acc + (Number(p.stock) || 0), 0);
-      const lowStockItems = products.filter((p) => p.stock > 0 && p.stock < 5);
-      const outOfStockItems = products.filter((p) => p.stock <= 0);
-
-      let stockReport =
-        `Here is your live inventory telemetry:\n\n` +
-        `• Catalog Items: ${totalProds} products\n` +
-        `• Total Units in Stock: ${totalUnits} units\n` +
-        `• Low Stock Alerts (< 5 units): ${lowStockItems.length} items\n` +
-        `• Out of Stock (0 units): ${outOfStockItems.length} items\n\n`;
-
-      if (lowStockItems.length > 0) {
-        const names = lowStockItems.slice(0, 3).map((p) => `"${p.name}" (${p.stock} left)`).join(", ");
-        stockReport += `⚠️ Attention Needed: ${names}${lowStockItems.length > 3 ? ` and ${lowStockItems.length - 3} more` : ""}.\n\n`;
-      }
-
-      stockReport += "💡 Pro-Tip: In the Products tab, each item has a quick '+10 Restock' action button to quickly replenish stock without opening the edit modal.";
-
-      return {
-        text: stockReport,
-        actionHint: onNavigateTab ? { label: "View Products Tab", tab: "products" } : undefined,
-      };
+    if (lower.includes("overview tab") || lower.includes("analytics") || lower.includes("overview section")) {
+      if (onNavigateTab) return { label: "Go to Overview Tab", tab: "overview" };
     }
-
-    // ── Topic D: Product Suggestions / Ideas ──
-    if (
-      q.includes("what product should i add") ||
-      q.includes("suggest products") ||
-      q.includes("what should i sell") ||
-      q.includes("product ideas") ||
-      q.includes("recommend product") ||
-      q.includes("product suggestions") ||
-      q.includes("new item ideas")
-    ) {
-      const activeType = customBusinessType || businessType || "general retail";
-      return {
-        text:
-          `Based on your store profile ("${shopName}", category: ${activeType}):\n\n` +
-          `• Complementary Variants: Introduce accessories or matching companion pieces for your top-selling products.\n` +
-          `• Signature Statement Piece: Add a high-visibility hero product at the top of your catalog with rich photography.\n` +
-          `• Value Bundles: Group popular items into tiered packages to elevate your Average Order Value (AOV).\n` +
-          `• Clear Pricing Spread: Use markdown pricing (MRP higher than Selling Price) so buyers see instant discount savings on the storefront.\n\n` +
-          `*(Note: These are initial merchant suggestions. Live AI-driven predictive demand modeling will activate once the AI backend is connected!)*`,
-        actionHint: onNavigateTab ? { label: "Explore Products", tab: "products" } : undefined,
-      };
+    if (lower.includes("orders tab") || lower.includes("orders section") || lower.includes("fulfillment")) {
+      if (onNavigateTab) return { label: "Go to Orders Tab", tab: "orders" };
     }
-
-    // ── Topic E: Store / Dashboard Suggestions & Improvements ──
-    if (
-      q.includes("how can i improve") ||
-      q.includes("suggest improvements") ||
-      q.includes("what should i improve") ||
-      q.includes("suggestions") ||
-      q.includes("store tips") ||
-      q.includes("improve my store") ||
-      q.includes("optimize store")
-    ) {
-      const suggestions: string[] = [];
-
-      if (!logoUrl) {
-        suggestions.push("🎨 Upload a Brand Logo in Settings to personalize your navigation header.");
-      }
-      if (!bannerUrl) {
-        suggestions.push("🖼️ Add a Store Banner in Settings to give your public storefront visual depth.");
-      }
-      if (!shopAddress) {
-        suggestions.push("📍 Set your Store Address in Settings with Google Maps geolocation for customer trust.");
-      }
-      if (products.length < 3) {
-        suggestions.push(`📦 Expand your catalog: You currently have ${products.length} product(s). Adding 4–6 items creates a richer buyer experience.`);
-      }
-
-      const lowStockCount = products.filter((p) => p.stock < 5).length;
-      if (lowStockCount > 0) {
-        suggestions.push(`⚠️ Restock ${lowStockCount} product(s) marked with low-stock warnings.`);
-      }
-
-      suggestions.push("🚀 Scan your store's QR code in the Deployment tab to test the mobile checkout experience firsthand.");
-
-      return {
-        text:
-          `Here are actionable recommendations to optimize "${shopName}":\n\n` +
-          suggestions.map((s, idx) => `${idx + 1}. ${s}`).join("\n\n") +
-          `\n\nFollowing these steps ensures your public storefront converts visitors into satisfied customers!`,
-        actionHint: onNavigateTab ? { label: "Open Store Settings", tab: "settings" } : undefined,
-      };
+    if (lower.includes("settings tab") || lower.includes("settings section") || lower.includes("store details")) {
+      if (onNavigateTab) return { label: "Go to Settings Tab", tab: "settings" };
     }
-
-    // ── Topic F: Orders Assistance ──
-    if (
-      q.includes("order") ||
-      q.includes("fulfillment") ||
-      q.includes("customer order") ||
-      q.includes("orders help")
-    ) {
-      const totalOrders = orders.length;
-      const pendingOrders = orders.filter((o) => o.status === "pending" || o.status === "processing").length;
-
-      return {
-        text:
-          `Order Fulfillment Status for "${shopName}":\n\n` +
-          `• Total Logged Orders: ${totalOrders}\n` +
-          `• Active / Pending Fulfillment: ${pendingOrders}\n\n` +
-          `In the Orders tab, you can inspect customer contact info, delivery addresses, and transition statuses: Pending ➔ Processing ➔ Completed.\n` +
-          `When customers checkout from your public storefront or checkout page, their orders appear in this live table automatically.`,
-        actionHint: onNavigateTab ? { label: "Go to Orders Tab", tab: "orders" } : undefined,
-      };
+    if (lower.includes("deployment tab") || lower.includes("qr code") || lower.includes("custom domain")) {
+      if (onNavigateTab) return { label: "Go to Deployment Tab", tab: "deployment" };
     }
-
-    // ── Topic G: Unknown / General Questions (Frontend Demo Guardrail) ──
-    return {
-      text:
-        "I'm currently in frontend demo mode. I can help with your dashboard, products, inventory, and store management. Real AI-powered answers will be connected in the next stage.\n\n" +
-        "Try asking:\n" +
-        "• 'How do I add a product?'\n" +
-        "• 'How much stock do I have?'\n" +
-        "• 'Suggest improvements for my store'\n" +
-        "• 'Explain my dashboard'",
-    };
+    return undefined;
   };
 
-  const handleSend = (textToSend?: string) => {
+  const handleSend = async (textToSend?: string) => {
     const rawQuery = textToSend || inputVal;
     const trimmed = rawQuery.trim();
     if (!trimmed || isThinking) return;
@@ -354,24 +162,111 @@ export default function AIChatAssistant({
       timestamp: getFormattedTime(),
     };
 
+    // Append user message immediately
     setMessages((prev) => [...prev, userMsg]);
     setInputVal("");
     setIsThinking(true);
 
-    // Simulated local response with smooth 550ms delay
-    thinkingTimeoutRef.current = setTimeout(() => {
-      const responseData = generateResponse(trimmed);
+    // Prepare bounded conversation memory (latest 14 turns)
+    const conversation = messages
+      .filter((m) => m.id !== "welcome")
+      .slice(-14)
+      .map((m) => ({
+        role: (m.sender === "assistant" ? "assistant" : "user") as "assistant" | "user",
+        content: m.text,
+      }));
+
+    // Package live dashboard context for Gemini
+    const context = {
+      store: {
+        name: shopName,
+        ownerName,
+        businessType: customBusinessType || businessType,
+        currency,
+        address: shopAddress,
+        activeTab,
+      },
+      products: products.map((p) => ({
+        id: p.id,
+        name: p.name,
+        price: p.price,
+        sellingPrice: p.sellingPrice ?? p.price,
+        mrp: p.mrp ?? p.price,
+        stock: Number(p.stock) || 0,
+        category: p.category,
+        brand: p.brand,
+        status: p.status,
+      })),
+      inventory: products.map((p) => ({
+        name: p.name,
+        stock: Number(p.stock) || 0,
+        status:
+          (Number(p.stock) || 0) <= 0
+            ? "out_of_stock"
+            : (Number(p.stock) || 0) < 5
+            ? "low_stock"
+            : "in_stock",
+      })),
+      orders: orders.map((o) => ({
+        id: o.id,
+        customerName: o.customerName,
+        productName: o.productName,
+        quantity: o.quantity,
+        totalPrice: o.totalPrice,
+        status: o.status,
+        date: o.date,
+      })),
+    };
+
+    try {
+      // POST /api/ai/chat with Supabase bearer token handled inside api.sendChatMessage
+      const response = await api.sendChatMessage({
+        message: trimmed,
+        conversation,
+        context,
+      });
+
+      const replyText =
+        response.message || response.reply || "I'm here to help with your store.";
+
       const botMsg: Message = {
         id: `assistant-${Date.now()}`,
         sender: "assistant",
-        text: responseData.text,
+        text: replyText,
         timestamp: getFormattedTime(),
-        actionHint: responseData.actionHint,
+        actionHint: inferActionHint(replyText),
       };
 
       setMessages((prev) => [...prev, botMsg]);
+    } catch (err: any) {
+      console.error("[OBSIDIAN AI] Chat request error:", err);
+
+      // Section 14 explicit error handling mappings
+      let errorText = "Sorry, I'm having trouble responding right now. Please try again.";
+
+      if (err?.status === 401) {
+        errorText = "Your session has expired. Please log in again.";
+      } else if (err?.status === 429) {
+        errorText = "Too many requests. Please wait a moment and try again.";
+      } else if (
+        err?.message?.includes("Failed to fetch") ||
+        err?.name === "TypeError" ||
+        (typeof navigator !== "undefined" && !navigator.onLine)
+      ) {
+        errorText = "Unable to connect to the AI assistant. Please check your connection.";
+      }
+
+      const botErrorMsg: Message = {
+        id: `assistant-${Date.now()}`,
+        sender: "assistant",
+        text: errorText,
+        timestamp: getFormattedTime(),
+      };
+
+      setMessages((prev) => [...prev, botErrorMsg]);
+    } finally {
       setIsThinking(false);
-    }, 550);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -434,7 +329,7 @@ export default function AIChatAssistant({
             <div className="obsidian-ai-header-text">
               <h3>
                 Obsidian AI Assistant
-                <span className="obsidian-ai-header-badge">Demo</span>
+                <span className="obsidian-ai-header-badge">AI</span>
               </h3>
               <p>Your store assistant</p>
             </div>
@@ -461,7 +356,9 @@ export default function AIChatAssistant({
                 </div>
               )}
               <div className="obsidian-ai-bubble">
-                <div className="obsidian-ai-bubble-content">{m.text}</div>
+                <div className="obsidian-ai-bubble-content" style={{ whiteSpace: "pre-line" }}>
+                  {m.text}
+                </div>
                 {m.actionHint && (
                   <button
                     type="button"

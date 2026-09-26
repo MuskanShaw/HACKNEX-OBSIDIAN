@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import jwt from 'jsonwebtoken';
 import { env } from '../config/env.js';
-import { getSupabaseClient, isLiveSupabaseConfigured } from './supabase.js';
+import { getSupabaseClient, getSupabaseAnonClient, isLiveSupabaseConfigured } from './supabase.js';
 
 export interface VerifiedSupabaseUser {
   id: string; // Authenticated Supabase auth.uid
@@ -217,7 +217,22 @@ export async function authenticateSupabaseToken(rawToken: string): Promise<Verif
     // 1B. Authoritative Supabase Auth API verification
     try {
       const supabase = getSupabaseClient();
-      const { data, error } = await supabase.auth.getUser(token);
+      let { data, error } = await supabase.auth.getUser(token);
+
+      // If service-role client failed or is unconfigured, try anon client
+      if ((error || !data?.user) && env.SUPABASE_ANON_KEY) {
+        try {
+          const anonClient = getSupabaseAnonClient();
+          const anonRes = await anonClient.auth.getUser(token);
+          if (anonRes.data?.user) {
+            data = anonRes.data;
+            error = null;
+          }
+        } catch {
+          // ignore anon fallback error
+        }
+      }
+
       if (error || !data?.user) {
         console.log(`[AUTH] Supabase Auth rejected token: ${error?.message || 'User not found'}`);
         throw new Error(error?.message || 'Invalid or expired Supabase authentication token.');

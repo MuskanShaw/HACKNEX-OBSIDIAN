@@ -23,7 +23,7 @@ const testMemConversations: Map<string, ChatConversationRecord> = new Map();
 const testMemMessages: Map<string, ChatMessageRecord> = new Map();
 
 function useTestMemory(): boolean {
-  return process.env.NODE_ENV === 'test' && !isLiveSupabaseConfigured();
+  return !isLiveSupabaseConfigured();
 }
 
 /**

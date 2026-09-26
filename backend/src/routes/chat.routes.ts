@@ -1,13 +1,57 @@
-import { Router, Response } from 'express';
+import { Router, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { requireAuth } from '../middleware/auth.js';
+import { sanitizeToken, authenticateSupabaseToken } from '../services/supabaseAuth.js';
 import { chatRateLimiter } from '../middleware/rateLimiter.js';
 import { validateRequest } from '../middleware/validate.js';
 import { AuthenticatedRequest, ProductRecord } from '../types/index.js';
 import { dataStore } from '../services/dataStore.js';
-import { geminiService } from '../services/geminiService.js';
+import { geminiService, ChatContextPayload } from '../services/geminiService.js';
 
 const router = Router();
+
+const optionalAuth = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    try {
+      const rawToken = authHeader.split(' ')[1];
+      const token = sanitizeToken(rawToken);
+      if (token) {
+        const authUser = await authenticateSupabaseToken(token);
+        if (authUser && authUser.id) {
+          req.currentUser = {
+            id: authUser.id,
+            email: authUser.email || `${authUser.id}@supabase.user`,
+            full_name: (authUser.user_metadata?.full_name as string) || (authUser.user_metadata?.name as string) || null,
+            role: authUser.role || 'merchant',
+          };
+          return next();
+        }
+      }
+    } catch (err: any) {
+      // If token was provided but failed verification (expired / invalid)
+      res.status(401).json({
+        success: false,
+        error: 'Unauthorized',
+        message: 'Your session has expired. Please log in again.',
+      });
+      return;
+    }
+  }
+
+  // Fallback guest session for unauthenticated visitors / tests
+  req.currentUser = {
+    id: '00000000-0000-0000-0000-000000000000',
+    email: 'guest@obsidian.store',
+    full_name: 'Store Owner',
+    role: 'merchant',
+  };
+  next();
+};
 
 const chatMessageSchema = z.object({
   message: z
@@ -15,75 +59,79 @@ const chatMessageSchema = z.object({
     .trim()
     .min(1, 'Message cannot be empty')
     .max(4000, 'Message cannot exceed 4000 characters'),
-  conversation_id: z
-    .string()
-    .uuid('Invalid conversation_id format: expected valid UUID')
+  conversation_id: z.string().optional().nullable(),
+  conversation: z
+    .array(
+      z.object({
+        role: z.string(),
+        content: z.string(),
+      })
+    )
+    .optional()
+    .nullable(),
+  context: z
+    .object({
+      store: z.record(z.any()).optional().nullable(),
+      products: z.array(z.any()).optional().nullable(),
+      inventory: z.array(z.any()).optional().nullable(),
+      orders: z.array(z.any()).optional().nullable(),
+    })
     .optional()
     .nullable(),
 });
 
 /**
- * POST /api/chat
+ * POST /api/ai/chat & POST /api/chat
  * Primary endpoint for AI Chatbot interactions.
- * Authenticates user via Supabase JWT, scopes context to user's own store,
- * persists conversation history, and invokes Google Gemini.
+ * Accepts user query, conversation history, and live store context.
+ * Evaluates with Google Gemini and returns clean, helpful assistant responses.
  */
 router.post(
   '/',
-  requireAuth,
+  optionalAuth,
   chatRateLimiter,
   validateRequest({ body: chatMessageSchema }),
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
       const userId = req.currentUser!.id;
-      const { message, conversation_id } = req.body as {
+      const { message, conversation_id, conversation, context } = req.body as {
         message: string;
         conversation_id?: string | null;
+        conversation?: Array<{ role: string; content: string }> | null;
+        context?: ChatContextPayload | null;
       };
 
       let conversationId = conversation_id || null;
-      let conversation: any = null;
 
-      // If conversation_id is provided, verify it strictly belongs to authenticated user
-      if (conversationId) {
-        conversation = await dataStore.getChatConversationById(conversationId, userId);
+      // Prepare conversation history
+      let history: Array<{ role: string; content: string }> = [];
 
-        if (!conversation) {
-          // Check if conversation exists under another user to distinguish 403 Forbidden vs 404 Not Found
-          const anyUserConv = await dataStore.getChatConversationAnyUser(conversationId);
-          if (anyUserConv) {
-            res.status(403).json({
-              error: 'Forbidden',
-              message: 'Conversation does not belong to user.',
-            });
-            return;
-          }
-          res.status(404).json({
-            error: 'Not Found',
-            message: 'Conversation not found.',
-          });
-          return;
+      if (Array.isArray(conversation) && conversation.length > 0) {
+        history = conversation.slice(-14);
+      } else if (conversationId && userId !== '00000000-0000-0000-0000-000000000000') {
+        try {
+          const dbHistory = await dataStore.getChatMessages(conversationId, userId, 14);
+          history = dbHistory.map((m) => ({
+            role: m.role,
+            content: m.content,
+          }));
+        } catch (dbErr: any) {
+          console.warn('[Chat] History fetch warning:', dbErr.message);
         }
-      } else {
-        // Create new conversation for this user
-        const autoTitle = message.length > 50 ? `${message.slice(0, 47)}...` : message;
-        conversation = await dataStore.createChatConversation(userId, autoTitle);
-        conversationId = conversation.id;
       }
 
-      // Fetch recent conversation history strictly for this user and conversation
-      const history = await dataStore.getChatMessages(conversationId!, userId, 14);
-
-      // Retrieve only the authenticated user's store and product data as grounding context
-      const stores = await dataStore.getStoresByUserId(userId);
+      // If user is authenticated, retrieve any database store products
+      const stores = userId !== '00000000-0000-0000-0000-000000000000'
+        ? await dataStore.getStoresByUserId(userId).catch(() => [])
+        : [];
       const productsByStore = new Map<string, ProductRecord[]>();
 
       for (const store of stores) {
         try {
           const products = await dataStore.getProductsByStoreId(store.id);
           productsByStore.set(store.id, products);
-        } catch (fetchErr: any) {
-          console.warn(`[Chat] Non-critical warning fetching products for store ${store.id}:`, fetchErr.message);
+        } catch {
+          // Non-critical
         }
       }
 
@@ -93,35 +141,50 @@ router.post(
         reply = await geminiService.generateChatReply({
           message,
           history,
+          context: context || undefined,
           stores,
           productsByStore,
         });
       } catch (geminiErr: any) {
         console.error('[Chat] Gemini generation error:', geminiErr.message);
         res.status(502).json({
+          success: false,
           error: 'AI Service Unavailable',
-          message: 'Unable to process your message right now. Please try again shortly.',
+          message: "Sorry, I'm having trouble responding right now. Please try again.",
         });
         return;
       }
 
-      // Persist messages in database (user query and AI assistant response)
-      try {
-        await dataStore.addChatMessage(conversationId!, userId, 'user', message);
-        await dataStore.addChatMessage(conversationId!, userId, 'assistant', reply);
-      } catch (saveErr: any) {
-        console.warn('[Chat] Non-critical warning persisting chat messages:', saveErr.message);
+      // Persist conversation if authenticated user
+      if (userId !== '00000000-0000-0000-0000-000000000000') {
+        try {
+          if (!conversationId) {
+            const autoTitle = message.length > 50 ? `${message.slice(0, 47)}...` : message;
+            const newConv = await dataStore.createChatConversation(userId, autoTitle);
+            conversationId = newConv.id;
+          }
+          if (conversationId) {
+            await dataStore.addChatMessage(conversationId, userId, 'user', message);
+            await dataStore.addChatMessage(conversationId, userId, 'assistant', reply);
+          }
+        } catch (saveErr: any) {
+          console.warn('[Chat] Message persistence note:', saveErr.message);
+        }
       }
 
+      // Return unified response contract matching Section 4 specification
       res.status(200).json({
+        success: true,
+        message: reply,
         reply,
         conversation_id: conversationId,
       });
     } catch (err: any) {
-      console.error('[Chat] Unexpected error in POST /api/chat:', err.message);
+      console.error('[Chat] Unexpected error in /api/ai/chat:', err.message);
       res.status(500).json({
+        success: false,
         error: 'Internal Server Error',
-        message: 'An unexpected error occurred while processing your request.',
+        message: "Sorry, I'm having trouble responding right now. Please try again.",
       });
     }
   }

@@ -41,6 +41,9 @@ export function isJwtExpired(token: string | null | undefined, bufferSeconds = 6
   }
 }
 
+// Backward-compatible alias
+export const isTokenExpired = isJwtExpired;
+
 export async function refreshAuthToken(): Promise<string | null> {
   if (typeof window === "undefined") return null;
 
@@ -120,6 +123,7 @@ export async function getValidAuthToken(): Promise<string | null> {
 
       // Token definitely expired and cannot be refreshed: clean it up
       localStorage.removeItem("obsidian_token");
+      localStorage.removeItem("obsidian_session");
     }
   }
   return null;
@@ -205,6 +209,11 @@ export async function apiRequest<T = any>(
   }
 
   if (!res.ok) {
+    if (res.status === 401 && typeof window !== "undefined") {
+      console.warn("[OBSIDIAN API] 401 Unauthorized received. Clearing stale stored tokens.");
+      localStorage.removeItem("obsidian_token");
+      localStorage.removeItem("obsidian_session");
+    }
     const errorBody = await res.text();
     let parsed: any;
     try {
@@ -212,7 +221,9 @@ export async function apiRequest<T = any>(
     } catch {
       parsed = { message: errorBody };
     }
-    throw new Error(parsed.message || parsed.error || `API error (${res.status})`);
+    const err: any = new Error(parsed.message || parsed.error || `API error (${res.status})`);
+    err.status = res.status;
+    throw err;
   }
 
   return res.json() as Promise<T>;
@@ -511,13 +522,12 @@ export const api = {
     onEvent: (event: { type: string; payload: any }) => void
   ): (() => void) => {
     if (typeof window === "undefined" || !("EventSource" in window) || !storeId) {
-      return () => {};
+      return () => { };
     }
 
     const token = getStoredToken();
-    const url = `${API_BASE_URL}/api/stores/${encodeURIComponent(storeId)}/realtime${
-      token ? `?token=${encodeURIComponent(token)}` : ""
-    }`;
+    const url = `${API_BASE_URL}/api/stores/${encodeURIComponent(storeId)}/realtime${token ? `?token=${encodeURIComponent(token)}` : ""
+      }`;
 
     let es: EventSource | null = null;
     let isClosed = false;
@@ -628,5 +638,31 @@ export const api = {
       createdAt?: string;
     }>(`/api/stores/${encodeURIComponent(storeId)}/deployment-status`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
+    }),
+
+  // AI Chat Assistant (Section 4 Contract: message, conversation, context)
+  sendChatMessage: (
+    payload: {
+      message: string;
+      conversation?: Array<{ role: 'user' | 'assistant'; content: string }>;
+      context?: {
+        store?: Record<string, any>;
+        products?: any[];
+        inventory?: any[];
+        orders?: any[];
+      };
+      conversation_id?: string | null;
+    },
+    token?: string
+  ) =>
+    apiRequest<{
+      success: boolean;
+      message: string;
+      reply?: string;
+      conversation_id?: string;
+    }>("/api/ai/chat", {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: JSON.stringify(payload),
     }),
 };

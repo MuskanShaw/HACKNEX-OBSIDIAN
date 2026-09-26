@@ -173,6 +173,7 @@ export function createApp(): Express {
   app.use('/api/templates', templateRoutes);
   app.use('/api/public', publicRoutes);
   app.use('/api/chat', chatRoutes);
+  app.use('/api/ai/chat', chatRoutes);
   // Swagger API Documentation & Specification Aliases
   app.use('/api/docs', docsRoutes);
   app.use('/docs', docsRoutes);
