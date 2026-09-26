@@ -302,17 +302,22 @@ export default function DashboardPage() {
     }
   };
 
-  // Track initial load to prevent duplicate analytics fetch
-  const hasInitializedAnalytics = useRef(false);
+  // Track previous store and timeframe to prevent duplicate analytics fetches on mount
+  const prevTimeframeRef = useRef(chartTimeframe);
+  const prevStoreIdRef = useRef<string>("");
 
   // Trigger backend analytics request whenever backendStoreId or chartTimeframe updates
   useEffect(() => {
-    if (backendStoreId && backendStoreId !== "default") {
-      if (!hasInitializedAnalytics.current) {
-        hasInitializedAnalytics.current = true;
-        // Skip first fetch if backendAnalytics is already populated from initDashboard
-        if (backendAnalytics?.lastUpdated) return;
-      }
+    if (!backendStoreId || backendStoreId === "default") return;
+
+    // Fetch only if chartTimeframe changed or if switching to a different store
+    const storeChanged = Boolean(prevStoreIdRef.current && prevStoreIdRef.current !== backendStoreId);
+    const timeframeChanged = prevTimeframeRef.current !== chartTimeframe;
+
+    prevStoreIdRef.current = backendStoreId;
+    prevTimeframeRef.current = chartTimeframe;
+
+    if (storeChanged || timeframeChanged) {
       fetchAnalytics(backendStoreId, chartTimeframe);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -336,6 +341,7 @@ export default function DashboardPage() {
   // On every load (including new devices), we fetch backend state first.
   // localStorage is only used as an offline cache / fallback.
   useEffect(() => {
+    let isCancelled = false;
     let unsubscribeSse: (() => void) | null = null;
 
     const initDashboard = async () => {
@@ -400,33 +406,20 @@ export default function DashboardPage() {
 
       // Step 2: Fetch backend state — this is the authoritative source of truth.
       // Keep authLoading=true (spinner shown) until this resolves.
-      // On a new device the backend will identify the user via email header
-      // and return THAT USER'S actual data from Supabase — not empty state.
+      // Unified /api/account/state returns the full store profile, products, orders, and analytics.
       try {
-        let storeData: any = null;
-
-        // ── Parallelize initial API calls ──
-        const [tplResOpt, userStoresResOpt, stateOpt] = await Promise.allSettled([
+        // ── Parallelize initial independent API calls (Templates & unified Account State) ──
+        const [tplResOpt, stateOpt] = await Promise.allSettled([
           api.getTemplates().catch(() => null),
-          api.getUserStores().catch(() => null),
           api.getAccountState()
         ]);
+
+        if (isCancelled) return;
 
         if (tplResOpt.status === "fulfilled" && tplResOpt.value) {
           const tplRes = tplResOpt.value;
           if (Array.isArray(tplRes?.templates) && tplRes.templates.length > 0) {
             setAvailableTemplates(tplRes.templates);
-          }
-        }
-
-        if (userStoresResOpt.status === "fulfilled" && userStoresResOpt.value) {
-          const userStoresRes = userStoresResOpt.value;
-          const storesList = userStoresRes?.stores || [];
-          if (storesList.length > 0) {
-            const matched = storedStoreId
-              ? storesList.find((s: any) => String(s.id) === String(storedStoreId))
-              : null;
-            storeData = matched || userStoresRes.defaultStore || storesList[0];
           }
         }
 
@@ -438,13 +431,15 @@ export default function DashboardPage() {
 
         setIsBackendConnected(true);
 
-        // ── Step 2b: If store ID is known, fetch detailed store from GET /api/stores/:storeId ──
+        let storeData: any = state.store || null;
+
+        // Fallback: If storeData is missing from state but storedStoreId exists, fetch store directly
         const activeStoreId = storeData?.id || storedStoreId;
-        if (activeStoreId && activeStoreId !== "default") {
+        if (!storeData && activeStoreId && activeStoreId !== "default") {
           try {
             const detailRes = await api.getStore(activeStoreId);
             if (detailRes?.store || detailRes?.formattedStore) {
-              storeData = { ...storeData, ...(detailRes.store || detailRes.formattedStore) };
+              storeData = { ...(detailRes.store || detailRes.formattedStore) };
             }
           } catch {
             // Keep existing storeData
@@ -470,12 +465,6 @@ export default function DashboardPage() {
             timeframe: (initA.timeframe as "daily" | "weekly" | "monthly" | "yearly") || "monthly",
             lastUpdated: initA.lastUpdated,
           });
-        }
-
-        if (!storeData && state.store) {
-          storeData = state.store;
-        } else if (storeData && state.store) {
-          storeData = { ...state.store, ...storeData };
         }
 
         // Auto-provision store on backend if user is authenticated but no store exists yet
@@ -615,7 +604,6 @@ export default function DashboardPage() {
           if (serverCurrency) {
             setCurrency(serverCurrency);
             localStorage.setItem("storeCurrency", serverCurrency);
-            localStorage.setItem("currency", serverCurrency);
           }
 
           if (storeData.logo_url !== undefined) {
@@ -642,264 +630,256 @@ export default function DashboardPage() {
           }
 
           // ── Connect Real-Time SSE for live updates ──
-          unsubscribeSse = api.connectRealtime(storeData.id, (event) => {
-            const { type, payload } = event;
+          if (!isCancelled) {
+            unsubscribeSse = api.connectRealtime(storeData.id, (event) => {
+              if (isCancelled) return;
+              const { type, payload } = event;
 
-            // 1. ORDER_CREATED
-            if (type === "ORDER_CREATED") {
-              const ord = payload?.order || (payload?.id ? payload : null);
-              if (ord) {
-                const normalizedOrder: Order = {
-                  id: ord.id || ord._id || Date.now(),
-                  customerName: ord.customerName || ord.customer_name || ord.customer || "Customer",
-                  productName: ord.productName || ord.product_name || ord.product || "Product",
-                  productId: ord.productId || ord.product_id || 0,
-                  quantity: Number(ord.quantity || ord.qty || 1),
-                  totalPrice: Number(ord.totalPrice || ord.total_price || ord.total || ord.price || 0),
-                  status: ord.status || "pending",
-                  date: ord.date || ord.createdAt || ord.created_at || "Just now",
-                };
-                setOrders((prev) => {
-                  const updated = [normalizedOrder, ...prev.filter((o) => String(o.id) !== String(normalizedOrder.id))];
-                  localStorage.setItem("obsidian_orders", JSON.stringify(updated));
-                  localStorage.setItem("orders", JSON.stringify(updated));
-                  return updated;
-                });
-              }
-            }
-            // 2. ORDER_STATUS_UPDATED / ORDER_UPDATED
-            else if (type === "ORDER_STATUS_UPDATED" || type === "ORDER_UPDATED") {
-              const updatedOrd = payload?.order;
-              const targetId = updatedOrd?.id || payload?.id || payload?.orderId;
-              const newStatus = updatedOrd?.status || payload?.status;
-
-              if (targetId) {
-                setOrders((prev) => {
-                  const updated = prev.map((o) => {
-                    if (String(o.id) === String(targetId)) {
-                      return {
-                        ...o,
-                        ...(updatedOrd || {}),
-                        ...(newStatus ? { status: newStatus } : {}),
-                      };
-                    }
-                    return o;
+              // 1. ORDER_CREATED
+              if (type === "ORDER_CREATED") {
+                const ord = payload?.order || (payload?.id ? payload : null);
+                if (ord) {
+                  const normalizedOrder: Order = {
+                    id: ord.id || ord._id || Date.now(),
+                    customerName: ord.customerName || ord.customer_name || ord.customer || "Customer",
+                    productName: ord.productName || ord.product_name || ord.product || "Product",
+                    productId: ord.productId || ord.product_id || 0,
+                    quantity: Number(ord.quantity || ord.qty || 1),
+                    totalPrice: Number(ord.totalPrice || ord.total_price || ord.total || ord.price || 0),
+                    status: ord.status || "pending",
+                    date: ord.date || ord.createdAt || ord.created_at || "Just now",
+                  };
+                  setOrders((prev) => {
+                    const updated = [normalizedOrder, ...prev.filter((o) => String(o.id) !== String(normalizedOrder.id))];
+                    localStorage.setItem("obsidian_orders", JSON.stringify(updated));
+                    return updated;
                   });
-                  localStorage.setItem("obsidian_orders", JSON.stringify(updated));
-                  localStorage.setItem("orders", JSON.stringify(updated));
-                  return updated;
-                });
-              }
-            }
-            // 3. ORDER_DELETED
-            else if (type === "ORDER_DELETED") {
-              const targetId = payload?.id || payload?.orderId || payload?.order?.id;
-              if (targetId) {
-                setOrders((prev) => {
-                  const updated = prev.filter((o) => String(o.id) !== String(targetId));
-                  localStorage.setItem("obsidian_orders", JSON.stringify(updated));
-                  localStorage.setItem("orders", JSON.stringify(updated));
-                  return updated;
-                });
-              }
-            }
-            // 4. STOCK_UPDATED
-            else if (type === "STOCK_UPDATED") {
-              const prodId = payload?.productId || payload?.id || payload?.product?.id;
-              const newStock = payload?.stock !== undefined ? payload.stock : payload?.quantity;
-              if (prodId !== undefined && newStock !== undefined) {
-                setProducts((prev) => {
-                  const updated = prev.map((p) =>
-                    String(p.id) === String(prodId) || (p.backendId && String(p.backendId) === String(prodId))
-                      ? { ...p, stock: Number(newStock) }
-                      : p
-                  );
-                  localStorage.setItem("obsidian_products", JSON.stringify(updated));
-                  localStorage.setItem("products", JSON.stringify(updated));
-                  return updated;
-                });
-              }
-            }
-            // 5. PRODUCT_UPDATED / PRODUCT_CREATED / PRODUCT_DELETED
-            else if (type === "PRODUCT_UPDATED") {
-              const prod = payload?.product || (payload?.name ? payload : null);
-              if (prod && (prod.id !== undefined || prod.backendId)) {
-                const targetId = prod.id !== undefined ? prod.id : prod.backendId;
-                setProducts((prev) => {
-                  const updated = prev.map((p) =>
-                    String(p.id) === String(targetId) || (p.backendId && String(p.backendId) === String(prod.backendId))
-                      ? { ...p, ...prod }
-                      : p
-                  );
-                  localStorage.setItem("obsidian_products", JSON.stringify(updated));
-                  localStorage.setItem("products", JSON.stringify(updated));
-                  return updated;
-                });
-              }
-            } else if (type === "PRODUCT_CREATED") {
-              const prod = payload?.product || (payload?.name ? payload : null);
-              if (prod) {
-                setProducts((prev) => {
-                  const updated = [prod, ...prev.filter((p) => String(p.id) !== String(prod.id))];
-                  localStorage.setItem("obsidian_products", JSON.stringify(updated));
-                  localStorage.setItem("products", JSON.stringify(updated));
-                  return updated;
-                });
-              }
-            } else if (type === "PRODUCT_DELETED") {
-              const targetId = payload?.id || payload?.productId || payload?.product?.id;
-              if (targetId) {
-                setProducts((prev) => {
-                  const updated = prev.filter(
-                    (p) => String(p.id) !== String(targetId) && (!p.backendId || String(p.backendId) !== String(targetId))
-                  );
-                  localStorage.setItem("obsidian_products", JSON.stringify(updated));
-                  localStorage.setItem("products", JSON.stringify(updated));
-                  return updated;
-                });
-              }
-            }
-            // 6. STORE_UPDATED
-            else if (type === "STORE_UPDATED") {
-              const st = payload?.store || payload;
-              if (st) {
-                if (st.name || st.shopName) {
-                  const n = st.name || st.shopName;
-                  setShopName(n);
-                  localStorage.setItem("shopName", n);
-                }
-                if (st.business_type || st.businessType) {
-                  const bt = st.business_type || st.businessType;
-                  setBusinessType(bt);
-                  localStorage.setItem("businessType", bt);
-                }
-                if (st.custom_business_type || st.customBusinessType) {
-                  const cbt = st.custom_business_type || st.customBusinessType;
-                  setCustomBusinessType(cbt);
-                  localStorage.setItem("customBusinessType", cbt);
-                }
-                if (Array.isArray(st.custom_options || st.customOptions)) {
-                  const co = st.custom_options || st.customOptions;
-                  setCustomOptions(co);
-                  localStorage.setItem("customOptions", JSON.stringify(co));
-                }
-                if (st.currency) {
-                  setCurrency(st.currency);
-                  localStorage.setItem("storeCurrency", st.currency);
-                  localStorage.setItem("currency", st.currency);
-                }
-                if (st.address !== undefined || st.shopAddress !== undefined || st.formatted_address !== undefined) {
-                  const addr = st.address || st.shopAddress || st.formatted_address || "";
-                  setShopAddress(addr);
-                  localStorage.setItem("shopAddress", addr);
-                }
-                if (st.address_method || st.addressMethod) {
-                  const am = st.address_method || st.addressMethod;
-                  setAddressMethod(am);
-                  localStorage.setItem("addressMethod", am);
-                }
-                if (st.latitude !== undefined && st.latitude !== null) {
-                  setLatitude(Number(st.latitude));
-                  localStorage.setItem("storeLatitude", String(st.latitude));
-                }
-                if (st.longitude !== undefined && st.longitude !== null) {
-                  setLongitude(Number(st.longitude));
-                  localStorage.setItem("storeLongitude", String(st.longitude));
-                }
-                if (st.place_id || st.placeId) {
-                  const pid = st.place_id || st.placeId;
-                  setPlaceId(pid);
-                  localStorage.setItem("storePlaceId", pid);
-                }
-                if (st.maps_url || st.mapsUrl) {
-                  const murl = st.maps_url || st.mapsUrl;
-                  setMapsUrl(murl);
-                  localStorage.setItem("storeMapsUrl", murl);
-                }
-                if (st.logo_url !== undefined) {
-                  setLogoUrl(st.logo_url || "");
-                  if (st.logo_url) localStorage.setItem("storeLogo", st.logo_url);
-                  else localStorage.removeItem("storeLogo");
-                }
-                if (st.banner_url !== undefined) {
-                  setBannerUrl(st.banner_url || "");
-                  if (st.banner_url) localStorage.setItem("storeBanner", st.banner_url);
-                  else localStorage.removeItem("storeBanner");
-                }
-                const sTpl = st.selected_template_id || st.selectedTemplateId || st.template_id || st.templateId;
-                if (sTpl) {
-                  setSelectedTemplateId(sTpl);
-                  localStorage.setItem("obsidian_selected_template_id", sTpl);
-                }
-                if (st.slug) {
-                  setStoreSlug(st.slug);
-                  localStorage.setItem("storeSlug", st.slug);
                 }
               }
-            }
-            // 7. STORE_DEPLOYMENT_UPDATED
-            else if (type === "STORE_DEPLOYMENT_UPDATED") {
-              const dep = payload;
-              const depStatus = String(dep?.status || "").toUpperCase();
-              const depUrl =
-                dep?.deploymentUrl ||
-                dep?.deployment_url ||
-                dep?.liveUrl ||
-                dep?.live_url ||
-                dep?.url ||
-                dep?.store?.live_url ||
-                dep?.store?.deploymentUrl;
+              // 2. ORDER_STATUS_UPDATED / ORDER_UPDATED
+              else if (type === "ORDER_STATUS_UPDATED" || type === "ORDER_UPDATED") {
+                const updatedOrd = payload?.order;
+                const targetId = updatedOrd?.id || payload?.id || payload?.orderId;
+                const newStatus = updatedOrd?.status || payload?.status;
 
-              if (depUrl) {
-                setDeploymentUrl(depUrl);
-                localStorage.setItem("obsidian_deployment_url", depUrl);
+                if (targetId) {
+                  setOrders((prev) => {
+                    const updated = prev.map((o) => {
+                      if (String(o.id) === String(targetId)) {
+                        return {
+                          ...o,
+                          ...(updatedOrd || {}),
+                          ...(newStatus ? { status: newStatus } : {}),
+                        };
+                      }
+                      return o;
+                    });
+                    localStorage.setItem("obsidian_orders", JSON.stringify(updated));
+                    return updated;
+                  });
+                }
               }
+              // 3. ORDER_DELETED
+              else if (type === "ORDER_DELETED") {
+                const targetId = payload?.id || payload?.orderId || payload?.order?.id;
+                if (targetId) {
+                  setOrders((prev) => {
+                    const updated = prev.filter((o) => String(o.id) !== String(targetId));
+                    localStorage.setItem("obsidian_orders", JSON.stringify(updated));
+                    return updated;
+                  });
+                }
+              }
+              // 4. STOCK_UPDATED
+              else if (type === "STOCK_UPDATED") {
+                const prodId = payload?.productId || payload?.id || payload?.product?.id;
+                const newStock = payload?.stock !== undefined ? payload.stock : payload?.quantity;
+                if (prodId !== undefined && newStock !== undefined) {
+                  setProducts((prev) => {
+                    const updated = prev.map((p) =>
+                      String(p.id) === String(prodId) || (p.backendId && String(p.backendId) === String(prodId))
+                        ? { ...p, stock: Number(newStock) }
+                        : p
+                    );
+                    localStorage.setItem("obsidian_products", JSON.stringify(updated));
+                    return updated;
+                  });
+                }
+              }
+              // 5. PRODUCT_UPDATED / PRODUCT_CREATED / PRODUCT_DELETED
+              else if (type === "PRODUCT_UPDATED") {
+                const prod = payload?.product || (payload?.name ? payload : null);
+                if (prod && (prod.id !== undefined || prod.backendId)) {
+                  const targetId = prod.id !== undefined ? prod.id : prod.backendId;
+                  setProducts((prev) => {
+                    const updated = prev.map((p) =>
+                      String(p.id) === String(targetId) || (p.backendId && String(p.backendId) === String(prod.backendId))
+                        ? { ...p, ...prod }
+                        : p
+                    );
+                    localStorage.setItem("obsidian_products", JSON.stringify(updated));
+                    return updated;
+                  });
+                }
+              } else if (type === "PRODUCT_CREATED") {
+                const prod = payload?.product || (payload?.name ? payload : null);
+                if (prod) {
+                  setProducts((prev) => {
+                    const updated = [prod, ...prev.filter((p) => String(p.id) !== String(prod.id))];
+                    localStorage.setItem("obsidian_products", JSON.stringify(updated));
+                    return updated;
+                  });
+                }
+              } else if (type === "PRODUCT_DELETED") {
+                const targetId = payload?.id || payload?.productId || payload?.product?.id;
+                if (targetId) {
+                  setProducts((prev) => {
+                    const updated = prev.filter(
+                      (p) => String(p.id) !== String(targetId) && (!p.backendId || String(p.backendId) !== String(targetId))
+                    );
+                    localStorage.setItem("obsidian_products", JSON.stringify(updated));
+                    return updated;
+                  });
+                }
+              }
+              // 6. STORE_UPDATED
+              else if (type === "STORE_UPDATED") {
+                const st = payload?.store || payload;
+                if (st) {
+                  if (st.name || st.shopName) {
+                    const n = st.name || st.shopName;
+                    setShopName(n);
+                    localStorage.setItem("shopName", n);
+                  }
+                  if (st.business_type || st.businessType) {
+                    const bt = st.business_type || st.businessType;
+                    setBusinessType(bt);
+                    localStorage.setItem("businessType", bt);
+                  }
+                  if (st.custom_business_type || st.customBusinessType) {
+                    const cbt = st.custom_business_type || st.customBusinessType;
+                    setCustomBusinessType(cbt);
+                    localStorage.setItem("customBusinessType", cbt);
+                  }
+                  if (Array.isArray(st.custom_options || st.customOptions)) {
+                    const co = st.custom_options || st.customOptions;
+                    setCustomOptions(co);
+                    localStorage.setItem("customOptions", JSON.stringify(co));
+                  }
+                  if (st.currency) {
+                    setCurrency(st.currency);
+                    localStorage.setItem("storeCurrency", st.currency);
+                  }
+                  if (st.address !== undefined || st.shopAddress !== undefined || st.formatted_address !== undefined) {
+                    const addr = st.address || st.shopAddress || st.formatted_address || "";
+                    setShopAddress(addr);
+                    localStorage.setItem("shopAddress", addr);
+                  }
+                  if (st.address_method || st.addressMethod) {
+                    const am = st.address_method || st.addressMethod;
+                    setAddressMethod(am);
+                    localStorage.setItem("addressMethod", am);
+                  }
+                  if (st.latitude !== undefined && st.latitude !== null) {
+                    setLatitude(Number(st.latitude));
+                    localStorage.setItem("storeLatitude", String(st.latitude));
+                  }
+                  if (st.longitude !== undefined && st.longitude !== null) {
+                    setLongitude(Number(st.longitude));
+                    localStorage.setItem("storeLongitude", String(st.longitude));
+                  }
+                  if (st.place_id || st.placeId) {
+                    const pid = st.place_id || st.placeId;
+                    setPlaceId(pid);
+                    localStorage.setItem("storePlaceId", pid);
+                  }
+                  if (st.maps_url || st.mapsUrl) {
+                    const murl = st.maps_url || st.mapsUrl;
+                    setMapsUrl(murl);
+                    localStorage.setItem("storeMapsUrl", murl);
+                  }
+                  if (st.logo_url !== undefined) {
+                    setLogoUrl(st.logo_url || "");
+                    if (st.logo_url) localStorage.setItem("storeLogo", st.logo_url);
+                    else localStorage.removeItem("storeLogo");
+                  }
+                  if (st.banner_url !== undefined) {
+                    setBannerUrl(st.banner_url || "");
+                    if (st.banner_url) localStorage.setItem("storeBanner", st.banner_url);
+                    else localStorage.removeItem("storeBanner");
+                  }
+                  const sTpl = st.selected_template_id || st.selectedTemplateId || st.template_id || st.templateId;
+                  if (sTpl) {
+                    setSelectedTemplateId(sTpl);
+                    localStorage.setItem("obsidian_selected_template_id", sTpl);
+                  }
+                  if (st.slug) {
+                    setStoreSlug(st.slug);
+                    localStorage.setItem("storeSlug", st.slug);
+                  }
+                }
+              }
+              // 7. STORE_DEPLOYMENT_UPDATED
+              else if (type === "STORE_DEPLOYMENT_UPDATED") {
+                const dep = payload;
+                const depStatus = String(dep?.status || "").toUpperCase();
+                const depUrl =
+                  dep?.deploymentUrl ||
+                  dep?.deployment_url ||
+                  dep?.liveUrl ||
+                  dep?.live_url ||
+                  dep?.url ||
+                  dep?.store?.live_url ||
+                  dep?.store?.deploymentUrl;
 
-              if (depStatus === "READY" || depStatus === "COMPLETED") {
-                stopDeploymentPolling();
-                setIsDeploying(false);
                 if (depUrl) {
-                  triggerToast(`Live on Vercel: ${depUrl} 🎉`);
+                  setDeploymentUrl(depUrl);
+                  localStorage.setItem("obsidian_deployment_url", depUrl);
                 }
-              } else if (depStatus === "ERROR" || depStatus === "FAILED") {
-                stopDeploymentPolling();
-                setIsDeploying(false);
-                triggerToast("Deployment encountered an error on Vercel.");
-              } else if (depStatus === "BUILDING" || depStatus === "PENDING") {
-                setIsDeploying(true);
-              } else if (dep?.isDeploying !== undefined) {
-                setIsDeploying(Boolean(dep.isDeploying));
-                if (!dep.isDeploying) stopDeploymentPolling();
-              } else if (depUrl) {
-                stopDeploymentPolling();
-                setIsDeploying(false);
+
+                if (depStatus === "READY" || depStatus === "COMPLETED") {
+                  stopDeploymentPolling();
+                  setIsDeploying(false);
+                  if (depUrl) {
+                    triggerToast(`Live on Vercel: ${depUrl} 🎉`);
+                  }
+                } else if (depStatus === "ERROR" || depStatus === "FAILED") {
+                  stopDeploymentPolling();
+                  setIsDeploying(false);
+                  triggerToast("Deployment encountered an error on Vercel.");
+                } else if (depStatus === "BUILDING" || depStatus === "PENDING") {
+                  setIsDeploying(true);
+                } else if (dep?.isDeploying !== undefined) {
+                  setIsDeploying(Boolean(dep.isDeploying));
+                  if (!dep.isDeploying) stopDeploymentPolling();
+                } else if (depUrl) {
+                  stopDeploymentPolling();
+                  setIsDeploying(false);
+                }
               }
-            }
-          });
+            });
+          }
         }
 
-        // ── Hydrate products from DB (authoritative) via GET /api/stores/:storeId/products ──
+        // ── Hydrate products from authoritative unified account state ──
         let serverProducts: Product[] = [];
-        if (activeStoreId && activeStoreId !== "default") {
+        if (Array.isArray(state.products) && state.products.length > 0) {
+          serverProducts = state.products;
+        } else if (!state.products && activeStoreId && activeStoreId !== "default") {
           try {
             const prodRes = await api.getProducts(activeStoreId);
             if (Array.isArray(prodRes?.products) && prodRes.products.length > 0) {
               serverProducts = prodRes.products;
             }
           } catch {
-            // Fall back to state.products
+            // Fall back to empty
           }
-        }
-
-        if (serverProducts.length === 0 && Array.isArray(state.products) && state.products.length > 0) {
-          serverProducts = state.products;
         }
 
         if (serverProducts.length > 0) {
           // Backend has data — use it regardless of what localStorage says
           setProducts(serverProducts);
           localStorage.setItem("obsidian_products", JSON.stringify(serverProducts));
-          localStorage.setItem("products", JSON.stringify(serverProducts));
         } else if (initialProducts.length > 0 || initialOrders.length > 0) {
           // Backend has no data for this user yet — import localStorage data into DB
           // (This handles first login after migrating from offline mode)
@@ -929,7 +909,6 @@ export default function DashboardPage() {
             if (imported.state?.products) {
               setProducts(imported.state.products);
               localStorage.setItem("obsidian_products", JSON.stringify(imported.state.products));
-              localStorage.setItem("products", JSON.stringify(imported.state.products));
             }
           } catch {
             // Keep local products if import fails
@@ -940,9 +919,11 @@ export default function DashboardPage() {
           setProducts([]);
         }
 
-        // ── Hydrate orders from DB (authoritative) via GET /api/stores/:storeId/orders ──
+        // ── Hydrate orders from authoritative unified account state ──
         let serverOrders: Order[] = [];
-        if (activeStoreId && activeStoreId !== "default") {
+        if (Array.isArray(state.orders) && state.orders.length > 0) {
+          serverOrders = state.orders;
+        } else if (!state.orders && activeStoreId && activeStoreId !== "default") {
           try {
             const orderRes = await api.getOrders(activeStoreId);
             const fetched = Array.isArray(orderRes)
@@ -966,23 +947,21 @@ export default function DashboardPage() {
               }));
             }
           } catch (e) {
-            console.warn("Failed to fetch orders directly via getOrders:", e);
+            console.warn("Failed to fetch orders directly via getOrders fallback:", e);
           }
-        }
-
-        if (serverOrders.length === 0 && Array.isArray(state.orders) && state.orders.length > 0) {
-          serverOrders = state.orders;
         }
 
         if (serverOrders.length > 0) {
           setOrders(serverOrders);
           localStorage.setItem("obsidian_orders", JSON.stringify(serverOrders));
-          localStorage.setItem("orders", JSON.stringify(serverOrders));
         } else {
           setOrders(initialOrders);
         }
 
-      } catch {
+      } catch (err) {
+        if (isCancelled) return;
+        console.warn("Authoritative dashboard state fetch note / offline fallback:", err);
+
         // ── Offline fallback — backend unreachable ──
         // Use whatever localStorage has (may be stale but better than nothing)
         setIsBackendConnected(false);
@@ -1031,15 +1010,21 @@ export default function DashboardPage() {
         setProducts(initialProducts);
         setOrders(initialOrders);
       } finally {
-        setAuthLoading(false);
+        if (!isCancelled) {
+          setAuthLoading(false);
+        }
       }
     };
 
     initDashboard();
 
     return () => {
+      isCancelled = true;
       stopDeploymentPolling();
-      if (unsubscribeSse) unsubscribeSse();
+      if (unsubscribeSse) {
+        unsubscribeSse();
+        unsubscribeSse = null;
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -1059,18 +1044,15 @@ export default function DashboardPage() {
     }
   }, [storeSlug, deploymentUrl]);
 
-  // Real-time synchronization when orders are placed or products updated in other tabs
+  // Real-time synchronization when orders are placed or products updated in other tabs (offline cache sync)
   useEffect(() => {
-    const handleStorageChange = () => {
+    const handleStorageChange = (e: StorageEvent) => {
       try {
-        const rawProducts = localStorage.getItem("obsidian_products") || localStorage.getItem("products");
-        if (rawProducts) {
-          const parsed = JSON.parse(rawProducts);
+        if (e.key === "obsidian_products" && e.newValue) {
+          const parsed = JSON.parse(e.newValue);
           if (Array.isArray(parsed)) setProducts(parsed);
-        }
-        const rawOrders = localStorage.getItem("obsidian_orders") || localStorage.getItem("orders");
-        if (rawOrders) {
-          const parsed = JSON.parse(rawOrders);
+        } else if (e.key === "obsidian_orders" && e.newValue) {
+          const parsed = JSON.parse(e.newValue);
           if (Array.isArray(parsed)) setOrders(parsed);
         }
       } catch (err) {
@@ -1079,26 +1061,26 @@ export default function DashboardPage() {
     };
 
     window.addEventListener("storage", handleStorageChange);
-    window.addEventListener("focus", handleStorageChange);
     return () => {
       window.removeEventListener("storage", handleStorageChange);
-      window.removeEventListener("focus", handleStorageChange);
     };
   }, []);
 
-  // Save changes helpers with localStorage persistence and asynchronous backend sync
+  // Save changes helpers with offline cache persistence and authoritative backend sync
   const updateProductList = (newProducts: Product[]) => {
     setProducts(newProducts);
     localStorage.setItem("obsidian_products", JSON.stringify(newProducts));
-    localStorage.setItem("products", JSON.stringify(newProducts));
-    api.updateAccountState({ products: newProducts }).catch(() => {});
+    api.updateAccountState({ products: newProducts }).catch((err) => {
+      console.warn("Background product sync note:", err);
+    });
   };
 
   const updateOrderList = (newOrders: Order[]) => {
     setOrders(newOrders);
     localStorage.setItem("obsidian_orders", JSON.stringify(newOrders));
-    localStorage.setItem("orders", JSON.stringify(newOrders));
-    api.updateAccountState({ orders: newOrders }).catch(() => {});
+    api.updateAccountState({ orders: newOrders }).catch((err) => {
+      console.warn("Background order sync note:", err);
+    });
   };
 
   // Vercel Deployment Trigger with Automated Polling & Terminal Status Handling
@@ -2006,7 +1988,6 @@ export default function DashboardPage() {
         if (savedStore.currency) {
           setCurrency(savedStore.currency);
           localStorage.setItem("storeCurrency", savedStore.currency);
-          localStorage.setItem("currency", savedStore.currency);
         }
 
         if (savedStore.logo_url !== undefined) {
@@ -2045,7 +2026,6 @@ export default function DashboardPage() {
         localStorage.setItem("addressMethod", addressMethod);
         localStorage.setItem("shopAddress", shopAddress.trim());
         localStorage.setItem("storeCurrency", currency);
-        localStorage.setItem("currency", currency);
         if (selectedTemplateId) {
           localStorage.setItem("obsidian_selected_template_id", selectedTemplateId);
         }
