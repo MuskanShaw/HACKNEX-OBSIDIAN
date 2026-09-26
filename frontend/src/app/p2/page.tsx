@@ -359,6 +359,9 @@ export default function DashboardPage() {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.access_token) {
           localStorage.setItem("obsidian_token", session.access_token);
+          if (session.refresh_token) {
+            localStorage.setItem("obsidian_refresh_token", session.refresh_token);
+          }
           if (session.user) {
             const supaUser = {
               id: session.user.id,
@@ -1441,6 +1444,7 @@ export default function DashboardPage() {
       // ignore
     }
     localStorage.removeItem("obsidian_token");
+    localStorage.removeItem("obsidian_refresh_token");
     localStorage.removeItem("obsidian_session");
     localStorage.removeItem("obsidian_store_id");
     localStorage.removeItem("ownerName");

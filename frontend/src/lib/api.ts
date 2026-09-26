@@ -15,19 +15,112 @@ if (typeof window !== "undefined" && process.env.NODE_ENV !== "production") {
   console.log(`[OBSIDIAN API] Configured Base URL: ${API_BASE_URL}`);
 }
 
+let activeRefreshPromise: Promise<string | null> | null = null;
+
+export function isJwtExpired(token: string | null | undefined, bufferSeconds = 60): boolean {
+  if (!token) return true;
+  try {
+    const parts = token.split('.');
+    if (parts.length < 2) return false;
+    const base64Url = parts[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    const parsed = JSON.parse(jsonPayload);
+    if (typeof parsed.exp === 'number') {
+      const expiresAtMs = parsed.exp * 1000;
+      return expiresAtMs <= Date.now() + bufferSeconds * 1000;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+export async function refreshAuthToken(): Promise<string | null> {
+  if (typeof window === "undefined") return null;
+
+  if (activeRefreshPromise) {
+    return activeRefreshPromise;
+  }
+
+  activeRefreshPromise = (async () => {
+    try {
+      const storedRefreshToken = localStorage.getItem("obsidian_refresh_token");
+      let refreshResult = await supabase.auth.refreshSession();
+
+      if (!refreshResult.data?.session && storedRefreshToken) {
+        refreshResult = await supabase.auth.refreshSession({
+          refresh_token: storedRefreshToken,
+        });
+      }
+
+      const refreshedSession = refreshResult.data?.session;
+      if (refreshedSession?.access_token) {
+        localStorage.setItem("obsidian_token", refreshedSession.access_token);
+        if (refreshedSession.refresh_token) {
+          localStorage.setItem("obsidian_refresh_token", refreshedSession.refresh_token);
+        }
+        return refreshedSession.access_token;
+      }
+      return null;
+    } catch (err) {
+      console.warn("[OBSIDIAN API] Session refresh attempt failed:", err);
+      return null;
+    } finally {
+      activeRefreshPromise = null;
+    }
+  })();
+
+  return activeRefreshPromise;
+}
+
+export function clearAuthSession(): void {
+  if (typeof window !== "undefined") {
+    localStorage.removeItem("obsidian_token");
+    localStorage.removeItem("obsidian_refresh_token");
+    localStorage.removeItem("obsidian_session");
+  }
+}
+
 export async function getValidAuthToken(): Promise<string | null> {
   if (typeof window !== "undefined") {
     try {
-      // 1. Check live Supabase session (auto-refreshes expired access tokens)
+      // 1. Check live Supabase session
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.access_token) {
-        localStorage.setItem("obsidian_token", session.access_token);
-        return session.access_token;
+        if (isJwtExpired(session.access_token, 60)) {
+          const refreshed = await refreshAuthToken();
+          if (refreshed) return refreshed;
+        } else {
+          localStorage.setItem("obsidian_token", session.access_token);
+          if (session.refresh_token) {
+            localStorage.setItem("obsidian_refresh_token", session.refresh_token);
+          }
+          return session.access_token;
+        }
       }
     } catch {
-      // Fallback to stored tokens if supabase client is offline
+      // Supabase client offline / local error
     }
-    return getStoredToken();
+
+    // 2. Check stored token in localStorage
+    const storedToken = getStoredToken();
+    if (storedToken) {
+      if (!isJwtExpired(storedToken, 60)) {
+        return storedToken;
+      }
+      // Stored token is expired, attempt refresh
+      const refreshed = await refreshAuthToken();
+      if (refreshed) return refreshed;
+
+      // Token definitely expired and cannot be refreshed: clean it up
+      localStorage.removeItem("obsidian_token");
+    }
   }
   return null;
 }
@@ -65,7 +158,7 @@ export function getStoredUser(): any | null {
 
 export async function apiRequest<T = any>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit & { _isRetry?: boolean } = {}
 ): Promise<T> {
   const path = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
   const url = `${API_BASE_URL}${path}`;
@@ -94,6 +187,22 @@ export async function apiRequest<T = any>(
     ...options,
     headers,
   });
+
+  // Handle 401 Unauthorized with a single transparent token refresh and retry
+  if (res.status === 401 && !options._isRetry) {
+    const refreshedToken = await refreshAuthToken();
+    if (refreshedToken) {
+      const retryHeaders = {
+        ...headers,
+        Authorization: `Bearer ${refreshedToken}`,
+      };
+      return apiRequest<T>(endpoint, {
+        ...options,
+        headers: retryHeaders,
+        _isRetry: true,
+      });
+    }
+  }
 
   if (!res.ok) {
     const errorBody = await res.text();

@@ -80,6 +80,9 @@ export default function LoginPage() {
         };
         localStorage.setItem("obsidian_session", JSON.stringify(loggedUser));
         localStorage.setItem("obsidian_token", session.access_token);
+        if (session.refresh_token) {
+          localStorage.setItem("obsidian_refresh_token", session.refresh_token);
+        }
         setActiveSessionUser(loggedUser);
       } else {
         try {
@@ -103,10 +106,14 @@ export default function LoginPage() {
         };
         localStorage.setItem("obsidian_session", JSON.stringify(loggedUser));
         localStorage.setItem("obsidian_token", session.access_token);
+        if (session.refresh_token) {
+          localStorage.setItem("obsidian_refresh_token", session.refresh_token);
+        }
         setActiveSessionUser(loggedUser);
       } else if (_event === "SIGNED_OUT") {
         localStorage.removeItem("obsidian_session");
         localStorage.removeItem("obsidian_token");
+        localStorage.removeItem("obsidian_refresh_token");
         setActiveSessionUser(null);
       }
     });
@@ -336,6 +343,9 @@ export default function LoginPage() {
         if (!supaErr && supaData?.user) {
           authUserId = supaData.user.id;
           authToken = supaData.session?.access_token || "";
+          if (supaData.session?.refresh_token) {
+            localStorage.setItem("obsidian_refresh_token", supaData.session.refresh_token);
+          }
         }
 
         // If direct client signup didn't return a session or errored, delegate to backend auth/signup
@@ -347,6 +357,17 @@ export default function LoginPage() {
           });
           authUserId = res.user?.id || authUserId;
           authToken = res.token || authToken;
+          if (res.session?.access_token && res.session?.refresh_token) {
+            try {
+              await supabase.auth.setSession({
+                access_token: res.session.access_token,
+                refresh_token: res.session.refresh_token,
+              });
+            } catch (supaSetErr) {
+              console.warn("Could not sync browser supabase session:", supaSetErr);
+            }
+            localStorage.setItem("obsidian_refresh_token", res.session.refresh_token);
+          }
         }
 
         if (!authUserId) {
@@ -391,6 +412,9 @@ export default function LoginPage() {
         if (!supaErr && supaData?.user && supaData?.session) {
           authUserId = supaData.user.id;
           authToken = supaData.session.access_token;
+          if (supaData.session.refresh_token) {
+            localStorage.setItem("obsidian_refresh_token", supaData.session.refresh_token);
+          }
         } else {
           // Fallback / sync to backend api.login which calls Supabase auth
           const res = await api.login({
@@ -399,6 +423,17 @@ export default function LoginPage() {
           });
           authUserId = res.user?.id || "";
           authToken = res.token || "";
+          if (res.session?.access_token && res.session?.refresh_token) {
+            try {
+              await supabase.auth.setSession({
+                access_token: res.session.access_token,
+                refresh_token: res.session.refresh_token,
+              });
+            } catch (supaSetErr) {
+              console.warn("Could not sync browser supabase session:", supaSetErr);
+            }
+            localStorage.setItem("obsidian_refresh_token", res.session.refresh_token);
+          }
         }
 
         if (!authUserId || !authToken) {

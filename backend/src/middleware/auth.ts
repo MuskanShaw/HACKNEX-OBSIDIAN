@@ -22,10 +22,15 @@ export const requireAuth = async (
     const authHeader = req.headers.authorization;
     const queryToken = (req.query?.token || req.query?.access_token) as string | undefined;
 
-    const hasBearerHeader = Boolean(authHeader && authHeader.startsWith('Bearer '));
-    const rawToken = hasBearerHeader
-      ? authHeader!.split(' ')[1]
-      : queryToken;
+    let headerToken: string | undefined;
+    if (authHeader) {
+      const match = authHeader.match(/^bearer\s+(.+)$/i);
+      if (match) {
+        headerToken = match[1].trim();
+      }
+    }
+
+    const rawToken = headerToken || queryToken;
 
     if (!rawToken) {
       res.status(401).json({
