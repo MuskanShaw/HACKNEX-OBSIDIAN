@@ -1671,6 +1671,67 @@ export const swaggerSpec = {
         },
       },
     },
+    '/api/ai/chat': {
+      post: {
+        tags: ['AI Chatbot'],
+        summary: 'Send user message with store context to Obsidian AI Assistant (Google Gemini)',
+        security: [{ BearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['message'],
+                properties: {
+                  message: { type: 'string', example: 'How do I add a product?' },
+                  conversation_id: { type: 'string', nullable: true },
+                  conversation: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        role: { type: 'string', enum: ['user', 'assistant'] },
+                        content: { type: 'string' }
+                      }
+                    }
+                  },
+                  context: {
+                    type: 'object',
+                    properties: {
+                      store: { type: 'object' },
+                      products: { type: 'array', items: { type: 'object' } },
+                      inventory: { type: 'array', items: { type: 'object' } },
+                      orders: { type: 'array', items: { type: 'object' } }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          200: {
+            description: 'AI response generated successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    message: { type: 'string', example: 'You can add a product from the Products section...' },
+                    reply: { type: 'string' },
+                    conversation_id: { type: 'string' }
+                  }
+                }
+              }
+            }
+          },
+          401: { description: 'Unauthorized or expired session' },
+          502: { description: 'AI service unavailable' }
+        }
+      }
+    },
   },
 };
 

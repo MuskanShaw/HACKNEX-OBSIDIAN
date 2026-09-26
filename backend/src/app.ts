@@ -20,6 +20,7 @@ import analyticsRoutes from './routes/analytics.routes.js';
 import mapsRoutes from './routes/maps.routes.js';
 import realtimeRoutes from './routes/realtime.routes.js';
 import chatRoutes from './routes/chat.routes.js';
+import aiRoutes from './routes/ai.routes.js';
 
 import { getSupabaseClient, isLiveSupabaseConfigured } from './services/supabase.js';
 import { geminiService } from './services/geminiService.js';
@@ -172,8 +173,10 @@ export function createApp(): Express {
   app.use('/api/stores', storeRoutes);
   app.use('/api/templates', templateRoutes);
   app.use('/api/public', publicRoutes);
-  app.use('/api/chat', chatRoutes);
+  app.use('/api/ai', aiRoutes);
   app.use('/api/ai/chat', chatRoutes);
+  app.use('/api/chat', chatRoutes);
+  app.use('/ai/chat', chatRoutes);
   // Swagger API Documentation & Specification Aliases
   app.use('/api/docs', docsRoutes);
   app.use('/docs', docsRoutes);

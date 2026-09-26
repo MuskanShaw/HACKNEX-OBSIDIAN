@@ -2,17 +2,17 @@ services:
   - type: web
     name: hacknex-obsidian06
     runtime: node
-    rootDir: frontend
+    rootDir: backend
     buildCommand: npm install && npm run build
     startCommand: npm run start
     envVars:
       - key: NODE_ENV
         value: production
-      - key: NEXT_PUBLIC_BACKEND_URL
-        value: https://hacknex-obsidian06.onrender.com
-      - key: NEXT_PUBLIC_API_URL
-        value: https://hacknex-obsidian06.onrender.com
-      - key: NEXT_PUBLIC_SUPABASE_URL
+      - key: PORT
+        value: 4000
+      - key: SUPABASE_URL
         value: https://vrgendezcvpzjuhcuhfo.supabase.co
-      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+      - key: SUPABASE_ANON_KEY
         value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZyZ2VuZGV6Y3Zwemp1aGN1aGZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzNDU3MTcsImV4cCI6MjEwMzkyMTcxN30.Qfo4AkAFjWufF-IcCdHxV2cNFh5RmNRJfOUef3gXfIs
+      - key: ALLOWED_ORIGIN
+        value: https://hacknex-obsidian06.vercel.app,https://hacknex-obsidian06.onrender.com,https://obsidian-alpha-wheat.vercel.app,http://localhost:3000,http://localhost:5173
