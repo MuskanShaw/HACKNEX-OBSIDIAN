@@ -1139,7 +1139,7 @@
    ══════════════════════════════════════════════════════════ */
 .db-toast {
   position: fixed;
-  bottom: 28px;
+  bottom: 96px;
   right: 28px;
   background: var(--nm-bg);
   box-shadow: var(--nm-shadow-out-xl);

@@ -1,0 +1,1147 @@
+================================================================================
+OBSIDIAN COMMERCE PLATFORM - BACKEND API REQUIREMENTS SPECIFICATION
+================================================================================
+Target Audience: Backend Engineering Team
+Generated From: Frontend Application Architecture & Client Contracts (Next.js 16)
+Frontend API Client Source: frontend/src/lib/api.ts
+Format: Plain Text Specification Document
+Date: September 26, 2026
+
+================================================================================
+TABLE OF CONTENTS
+================================================================================
+1. ARCHITECTURE OVERVIEW & PROTOCOL CONVENTIONS
+2. CORS & SECURITY CONFIGURATION
+3. AUTHENTICATION & IDENTITY HEADERS CONTRACT
+4. COMPLETE API ENDPOINTS SPECIFICATION
+   4.1 System & Health Checks
+   4.2 Authentication & User Management
+   4.3 Unified Account State & Migration
+   4.4 Store Management & Location
+   4.5 Template Catalog & Selection
+   4.6 Media & File Uploads (Multipart)
+   4.7 Product & Catalog Management
+   4.8 Order Processing & Fulfillment
+   4.9 Live Analytics Telemetry
+   4.10 Real-Time Server-Sent Events (SSE)
+   4.11 Google Maps Geocoding & Places
+   4.12 Storefront Deployment Orchestration
+   4.13 Public Storefront Data
+5. DATA MODELS & JSON SCHEMA DEFINITIONS
+6. REAL-TIME EVENT STREAMING CONTRACT (SSE)
+7. ERROR HANDLING & HTTP STATUS CODES
+8. RECOMMENDED DATABASE SCHEMA (RELATIONAL / SUPABASE POSTGRES)
+9. ENVIRONMENT VARIABLES CHECKLIST
+
+================================================================================
+1. ARCHITECTURE OVERVIEW & PROTOCOL CONVENTIONS
+================================================================================
+The frontend is a digital commerce storefront engine built with Next.js 16,
+React 19, and Tailwind CSS. All frontend interactions communicate with the backend
+through a centralized API client (`frontend/src/lib/api.ts`).
+
+- Protocol: HTTP/1.1 or HTTP/2, RESTful JSON APIs + SSE (Server-Sent Events)
+- Default Port: 4000 (Backend)
+- Frontend Dev URL: http://localhost:3000
+- Content-Type: `application/json` (except asset uploads which use `multipart/form-data`)
+- Character Set: UTF-8
+- Base URL Resolution Order in Frontend:
+    1. process.env.NEXT_PUBLIC_BACKEND_URL
+    2. process.env.NEXT_PUBLIC_API_URL
+    3. Fallback: https://obsidian-backend-1.onrender.com
+
+================================================================================
+2. CORS & SECURITY CONFIGURATION
+================================================================================
+The backend Express/Node/Python server MUST enable CORS with credentials for:
+
+Allowed Origins:
+- http://localhost:3000
+- http://127.0.0.1:3000
+- http://localhost:5173
+- http://127.0.0.1:5173
+- https://obsidian-alpha-wheat.vercel.app
+- Any preview domain matching `*.vercel.app`
+
+Allowed HTTP Methods:
+- GET, POST, PUT, PATCH, DELETE, OPTIONS
+
+Allowed Headers:
+- Content-Type
+- Authorization
+- Accept
+- Origin
+- X-Requested-With
+- apikey
+- x-mock-user-id
+- x-user-id
+- x-mock-user-email
+- x-user-email
+- x-mock-user-name
+- x-user-name
+- x-store-id
+
+Credentials:
+- `Access-Control-Allow-Credentials: true`
+
+================================================================================
+3. AUTHENTICATION & IDENTITY HEADERS CONTRACT
+================================================================================
+The frontend supports standard JWT authentication while providing dual-header
+fallback for seamless development and persistent merchant sessions.
+
+1. JWT Authorization Header:
+   On authenticated requests, the frontend sends:
+   `Authorization: Bearer <jwt_token>`
+
+2. User Identity Fallback Headers:
+   Whenever an authenticated merchant session exists in local storage, the
+   frontend automatically attaches the following identity headers on EVERY request:
+   - `x-user-id` and `x-mock-user-id`: string (UUID or unique merchant ID)
+   - `x-user-email` and `x-mock-user-email`: string (e.g. merchant@example.com)
+   - `x-user-name` and `x-mock-user-name`: string (e.g. Jane Doe)
+
+Backend Expectation:
+If a valid JWT token is present in the `Authorization` header, verify and resolve
+the merchant identity from the token payload. If the token is absent or expired,
+fall back gracefully to resolving or auto-provisioning the merchant via the
+`x-user-id` or `x-user-email` header.
+
+================================================================================
+4. COMPLETE API ENDPOINTS SPECIFICATION
+================================================================================
+
+--------------------------------------------------------------------------------
+4.1 System & Health Checks
+--------------------------------------------------------------------------------
+
+1. Health Check
+   - Method: GET
+   - Endpoint: `/health`
+   - Auth: None
+   - Success Response (200 OK):
+     {
+       "status": "ok",
+       "service": "obsidian-backend",
+       "database": "connected",      // "connected" | "disconnected" | "error"
+       "timestamp": "2026-09-26T07:44:00.000Z",
+       "environment": "development"  // "development" | "production" | "test"
+     }
+
+2. API Documentation / OpenAPI Spec
+   - Method: GET
+   - Endpoint: `/api/docs/swagger.json` (Also `/swagger.json`, `/openapi.json`)
+   - Auth: None
+   - Success Response (200 OK): Full OpenAPI 3.0.3 JSON document
+
+3. Service Root
+   - Method: GET
+   - Endpoint: `/`
+   - Auth: None
+   - Success Response (200 OK):
+     {
+       "name": "OBSIDIAN Storefront Backend Service",
+       "version": "1.0.0",
+       "documentation": "/api/docs",
+       "health": "/health"
+     }
+
+--------------------------------------------------------------------------------
+4.2 Authentication & User Management
+--------------------------------------------------------------------------------
+
+1. Merchant Login
+   - Method: POST
+   - Endpoint: `/api/auth/login`
+   - Auth: None
+   - Request Body:
+     {
+       "email": "merchant@example.com",
+       "password": "SecurePassword123!"
+     }
+   - Success Response (200 OK):
+     {
+       "message": "Login successful",
+       "token": "eyJhbGciOiJIUzI1NiIsInR5c...",
+       "user": {
+         "id": "usr_948201",
+         "email": "merchant@example.com",
+         "full_name": "Merchant Name"
+       },
+       "session": {
+         "access_token": "eyJhbGciOiJIUzI1NiIsInR5c...",
+         "token_type": "bearer",
+         "expires_in": 3600
+       }
+     }
+
+2. Merchant Signup / Registration
+   - Method: POST
+   - Endpoint: `/api/auth/signup`
+   - Auth: None
+   - Request Body:
+     {
+       "email": "merchant@example.com",
+       "password": "SecurePassword123!",
+       "full_name": "Merchant Name"         // Optional
+     }
+   - Success Response (201 Created or 200 OK):
+     {
+       "message": "Registration successful",
+       "token": "eyJhbGciOiJIUzI1NiIsInR5c...",
+       "user": {
+         "id": "usr_948201",
+         "email": "merchant@example.com",
+         "full_name": "Merchant Name"
+       },
+       "session": {
+         "access_token": "eyJhbGciOiJIUzI1NiIsInR5c..."
+       }
+     }
+
+3. Current User Profile
+   - Method: GET
+   - Endpoint: `/api/auth/me`
+   - Auth: Bearer Token or Identity Headers
+   - Success Response (200 OK):
+     {
+       "user": {
+         "id": "usr_948201",
+         "email": "merchant@example.com",
+         "full_name": "Merchant Name",
+         "created_at": "2026-09-26T07:44:00.000Z"
+       }
+     }
+
+4. User Synchronization
+   - Method: POST
+   - Endpoint: `/api/auth/sync`
+   - Auth: Bearer Token or Identity Headers
+   - Success Response (200 OK):
+     {
+       "message": "User synchronized",
+       "user": {
+         "id": "usr_948201",
+         "email": "merchant@example.com",
+         "full_name": "Merchant Name"
+       }
+     }
+
+5. Update Password
+   - Method: POST
+   - Endpoint: `/api/auth/update-password`
+   - Auth: Bearer Token
+   - Request Body:
+     {
+       "password": "NewSecurePassword123!"
+     }
+   - Success Response (200 OK):
+     {
+       "success": true,
+       "message": "Password updated successfully"
+     }
+
+--------------------------------------------------------------------------------
+4.3 Unified Account State & Migration
+--------------------------------------------------------------------------------
+The dashboard uses these endpoints to load and persist all merchant state
+(Store + Catalog + Orders + Telemetry) in atomic operations.
+
+1. Get Entire Account State
+   - Method: GET
+   - Endpoint: `/api/account/state`
+   - Auth: Bearer Token or Identity Headers
+   - Success Response (200 OK):
+     {
+       "user": { "id": "...", "email": "..." },
+       "store": { "id": "...", "name": "...", "slug": "...", ... },
+       "products": [ ... ],
+       "orders": [ ... ],
+       "analytics": { ... }
+     }
+
+2. Update Account State
+   - Method: PUT
+   - Endpoint: `/api/account/state`
+   - Auth: Bearer Token or Identity Headers
+   - Request Body (Partial or Complete):
+     {
+       "store": { ... },
+       "products": [ ... ],
+       "orders": [ ... ]
+     }
+   - Success Response (200 OK):
+     {
+       "success": true,
+       "state": { ... }
+     }
+
+3. Import Local State (Offline -> Online Hydration)
+   - Method: POST
+   - Endpoint: `/api/account/import-local-state`
+   - Auth: Bearer Token or Identity Headers
+   - Request Body:
+     {
+       "store": { ... },
+       "products": [ ... ],
+       "orders": [ ... ]
+     }
+   - Success Response (200 OK):
+     {
+       "success": true,
+       "state": { ... }
+     }
+
+--------------------------------------------------------------------------------
+4.4 Store Management & Location
+--------------------------------------------------------------------------------
+
+1. Get Merchant's Stores
+   - Method: GET
+   - Endpoint: `/api/stores/me`
+   - Auth: Bearer Token or Identity Headers
+   - Success Response (200 OK):
+     {
+       "stores": [
+         {
+           "id": "str_01",
+           "name": "Obsidian Archive",
+           "slug": "obsidian-archive",
+           "currency": "₹",
+           "business_type": "Apparel",
+           "logo_url": "https://...",
+           "banner_url": "https://..."
+         }
+       ],
+       "defaultStore": { ... }
+     }
+
+2. Create Store
+   - Method: POST
+   - Endpoint: `/api/stores`
+   - Auth: Bearer Token or Identity Headers
+   - Request Body:
+     {
+       "name": "Obsidian Archive",
+       "slug": "obsidian-archive",
+       "owner_name": "Jane Doe",
+       "ownerName": "Jane Doe",
+       "business_type": "Apparel",
+       "businessType": "Apparel",
+       "custom_business_type": "",
+       "customBusinessType": "",
+       "custom_options": {},
+       "customOptions": {},
+       "address": "Connaught Place, New Delhi",
+       "address_method": "manual",          // "manual" | "google_maps"
+       "addressMethod": "manual",
+       "currency": "₹",                     // "₹" | "$" | "€" | "£"
+       "logo_url": null,                    // URL string or null
+       "banner_url": null,                  // URL string or null
+       "selected_template_id": "obsidian-classic"
+     }
+   - Success Response (201 Created):
+     {
+       "message": "Store created successfully",
+       "store": { "id": "str_01", "name": "Obsidian Archive", "slug": "obsidian-archive", ... },
+       "formattedStore": { "id": "str_01", "name": "Obsidian Archive", "slug": "obsidian-archive", ... }
+     }
+
+3. Get Store by ID
+   - Method: GET
+   - Endpoint: `/api/stores/:storeId`
+   - Auth: Bearer Token or Identity Headers
+   - Success Response (200 OK):
+     {
+       "store": { "id": "str_01", "name": "...", "slug": "...", ... },
+       "formattedStore": { ... }
+     }
+
+4. Update Store (Partial / Patch)
+   - Method: PATCH
+   - Endpoint: `/api/stores/:storeId`
+   - Auth: Bearer Token or Identity Headers
+   - Request Body: Partial store object
+   - Success Response (200 OK):
+     {
+       "message": "Store updated successfully",
+       "store": { ... },
+       "formattedStore": { ... }
+     }
+
+5. Replace Store (Full / Put)
+   - Method: PUT
+   - Endpoint: `/api/stores/:storeId`
+   - Auth: Bearer Token or Identity Headers
+   - Request Body: Full store object
+   - Success Response (200 OK):
+     {
+       "message": "Store updated successfully",
+       "store": { ... },
+       "formattedStore": { ... }
+     }
+
+6. Delete Store
+   - Method: DELETE
+   - Endpoint: `/api/stores/:storeId`
+   - Auth: Bearer Token or Identity Headers
+   - Success Response (200 OK):
+     {
+       "success": true,
+       "message": "Store deleted successfully"
+     }
+
+7. Update Store Geolocation & Address
+   - Method: PATCH
+   - Endpoint: `/api/stores/:storeId/location`
+   - Auth: Bearer Token or Identity Headers
+   - Request Body:
+     {
+       "latitude": 28.6315,
+       "longitude": 77.2167,
+       "formattedAddress": "Connaught Place, New Delhi, Delhi 110001",
+       "placeId": "ChIJw0Qj2W_9DDkR...",
+       "mapsUrl": "https://maps.google.com/?cid=..."
+     }
+   - Success Response (200 OK):
+     {
+       "message": "Store location updated",
+       "store": { ... },
+       "formattedStore": { ... },
+       "location": {
+         "latitude": 28.6315,
+         "longitude": 77.2167,
+         "formattedAddress": "Connaught Place, New Delhi..."
+       }
+     }
+
+--------------------------------------------------------------------------------
+4.5 Template Catalog & Selection
+--------------------------------------------------------------------------------
+
+1. Get Storefront Templates Catalog
+   - Method: GET
+   - Endpoint: `/api/templates`
+   - Auth: None (Public)
+   - Success Response (200 OK):
+     {
+       "templates": [
+         {
+           "id": "obsidian-classic",
+           "name": "Obsidian Classic",
+           "description": "High-contrast obsidian dark aesthetic with glass surfaces",
+           "thumbnail_url": "https://...",
+           "category": "Modern Dark",
+           "theme": {
+             "primaryColor": "#050505",
+             "accentColor": "#6366f1"
+           }
+         },
+         {
+           "id": "minimal-editorial",
+           "name": "Minimal Editorial",
+           "description": "Clean typographic layout tailored for luxury apparel",
+           "thumbnail_url": "https://...",
+           "category": "Editorial",
+           "theme": { ... }
+         }
+       ]
+     }
+
+2. Select Template for Store
+   - Method: POST
+   - Endpoint: `/api/stores/:storeId/select-template`
+   - Auth: Bearer Token or Identity Headers
+   - Request Body:
+     {
+       "templateId": "obsidian-classic"
+     }
+   - Success Response (200 OK):
+     {
+       "message": "Template selected successfully",
+       "store": { ... },
+       "formattedStore": { ... },
+       "template": { "id": "obsidian-classic", ... }
+     }
+
+--------------------------------------------------------------------------------
+4.6 Media & File Uploads (Multipart Form Data)
+--------------------------------------------------------------------------------
+
+1. Upload Store Asset (Logo, Banner, or Product Image)
+   - Method: POST
+   - Endpoint: `/api/stores/:storeId/upload`
+   - Auth: Bearer Token or Identity Headers
+   - Content-Type: `multipart/form-data`
+   - Form Fields:
+     * `file`: Binary file data (JPG, PNG, WebP, SVG, MP4)
+     * `category`: "logo" | "banner" | "product"
+     * `productId`: string or number (Optional, sent when category="product")
+   - Success Response (200 OK or 201 Created):
+     {
+       "message": "Asset uploaded successfully",
+       "url": "https://your-bucket.storage.supabase.co/storefront-assets/...",
+       "path": "stores/str_01/products/prod_101.webp"
+     }
+
+--------------------------------------------------------------------------------
+4.7 Product & Catalog Management
+--------------------------------------------------------------------------------
+
+1. List Store Products
+   - Method: GET
+   - Endpoint: `/api/stores/:storeId/products`
+   - Auth: Optional (Public buyer storefront or merchant dashboard)
+   - Query Parameters:
+     * `search`: string (e.g. ?search=overcoat)
+     * `category`: string (e.g. ?category=Apparel)
+     * `status`: string (e.g. ?status=active)
+   - Success Response (200 OK):
+     {
+       "products": [
+         {
+           "id": 101,                           // Numeric client ID or UUID
+           "name": "Monolith Architectural Overcoat",
+           "description": "Tailored wool-blend architectural overcoat...",
+           "price": 450,
+           "sellingPrice": 450,
+           "mrp": 520,
+           "discountPercent": 13,
+           "discountPrice": 450,
+           "stock": 12,
+           "emoji": "🧥",
+           "category": "Apparel",
+           "brand": "Obsidian",
+           "types": ["Luxury", "Outerwear"],
+           "image": "https://...",
+           "status": "active"
+         }
+       ],
+       "rawProducts": [ ... ]
+     }
+
+2. Create Product
+   - Method: POST
+   - Endpoint: `/api/stores/:storeId/products`
+   - Auth: Bearer Token or Identity Headers
+   - Request Body:
+     {
+       "name": "Prism Ceramic Watch",
+       "image": "https://...",
+       "brand": "Obsidian",
+       "types": ["Accessories", "Luxury"],
+       "description": "Matte black ceramic casing with sapphire glass crystal.",
+       "mrp": 380,
+       "sellingPrice": 320,
+       "discountPercent": 16,
+       "stock": 8,
+       "price": 320,
+       "discountPrice": 320,
+       "emoji": "⌚",
+       "category": "Accessories",
+       "status": "active"
+     }
+   - Success Response (201 Created):
+     {
+       "message": "Product created successfully",
+       "product": { ... },
+       "rawProduct": { ... }
+     }
+
+3. Update Product
+   - Method: PUT
+   - Endpoint: `/api/stores/:storeId/products/:productId`
+   - Auth: Bearer Token or Identity Headers
+   - Request Body: Full or updated product fields (matches create product)
+   - Success Response (200 OK):
+     {
+       "message": "Product updated successfully",
+       "product": { ... },
+       "rawProduct": { ... }
+     }
+
+4. Adjust Stock Level (Quick Action / Real-Time Decrement)
+   - Method: PATCH
+   - Endpoint: `/api/stores/:storeId/products/:productId/stock`
+   - Auth: Bearer Token or Identity Headers
+   - Request Body:
+     {
+       "delta": 10,        // Positive to increment (+10 Restock), negative to decrement
+       "stock": 22         // Absolute new stock value
+     }
+   - Success Response (200 OK):
+     {
+       "message": "Stock updated successfully",
+       "product": {
+         "id": 101,
+         "stock": 22
+       }
+     }
+
+5. Delete Single Product
+   - Method: DELETE
+   - Endpoint: `/api/stores/:storeId/products/:productId`
+   - Auth: Bearer Token or Identity Headers
+   - Success Response (200 OK):
+     {
+       "message": "Product deleted successfully",
+       "deletedId": 101
+     }
+
+6. Clear All Products (Bulk Reset)
+   - Method: DELETE
+   - Endpoint: `/api/stores/:storeId/products`
+   - Auth: Bearer Token or Identity Headers
+   - Success Response (200 OK):
+     {
+       "success": true,
+       "clearedCount": 14
+     }
+
+--------------------------------------------------------------------------------
+4.8 Order Processing & Fulfillment
+--------------------------------------------------------------------------------
+
+1. List Store Orders
+   - Method: GET
+   - Endpoint: `/api/stores/:storeId/orders`
+   - Auth: Bearer Token or Identity Headers
+   - Success Response (200 OK):
+     {
+       "orders": [
+         {
+           "id": 1727336640000,
+           "customerName": "Alexander Vance",
+           "customerPhone": "+91 98765 43210",
+           "customerAddress": "Suite 404, Cyber City, Gurugram",
+           "paymentMethod": "cod",
+           "productName": "Monolith Architectural Overcoat",
+           "productId": 101,
+           "quantity": 1,
+           "totalPrice": 450,
+           "totalAmount": 450,
+           "status": "processing",       // "pending" | "processing" | "completed" | "cancelled"
+           "date": "Sep 26, 2026",
+           "items": [
+             {
+               "productId": 101,
+               "name": "Monolith Architectural Overcoat",
+               "price": 450,
+               "quantity": 1
+             }
+           ]
+         }
+       ],
+       "rawOrders": [ ... ]
+     }
+
+2. Get Order Details
+   - Method: GET
+   - Endpoint: `/api/stores/:storeId/orders/:orderId`
+   - Auth: Bearer Token or Identity Headers
+   - Success Response (200 OK):
+     {
+       "order": { ... }
+     }
+
+3. Create Customer Order (Checkout Placement)
+   - Method: POST
+   - Endpoint: `/api/stores/:storeId/orders`
+   - Auth: None (Public buyer placement) or Bearer Token
+   - Request Body:
+     {
+       "id": 1727336640000,                // Client generated timestamp ID or optional
+       "customerName": "Alexander Vance",
+       "customerPhone": "+91 98765 43210",
+       "customerAddress": "Suite 404, Cyber City, Gurugram",
+       "paymentMethod": "cod",             // "cod" | "upi" | "card"
+       "productName": "Monolith Architectural Overcoat",
+       "productId": 101,
+       "quantity": 1,
+       "totalPrice": 450,
+       "totalAmount": 450,
+       "status": "processing",             // Default: "processing" or "pending"
+       "items": [
+         {
+           "productId": 101,
+           "name": "Monolith Architectural Overcoat",
+           "price": 450,
+           "quantity": 1
+         }
+       ]
+     }
+   - Success Response (201 Created):
+     {
+       "message": "Order created successfully",
+       "order": {
+         "id": 1727336640000,
+         "customerName": "Alexander Vance",
+         "productName": "Monolith Architectural Overcoat",
+         "quantity": 1,
+         "totalPrice": 450,
+         "status": "processing",
+         "date": "Sep 26, 2026"
+       },
+       "remainingStock": 11                // Automatically decremented stock count
+     }
+
+4. Update Order Status
+   - Method: PATCH
+   - Endpoint: `/api/stores/:storeId/orders/:orderId/status`
+   - Auth: Bearer Token or Identity Headers
+   - Request Body:
+     {
+       "status": "completed"               // "pending" | "processing" | "completed" | "cancelled"
+     }
+   - Success Response (200 OK):
+     {
+       "message": "Order status updated successfully",
+       "order": {
+         "id": 1727336640000,
+         "status": "completed"
+       }
+     }
+
+5. Delete Single Order
+   - Method: DELETE
+   - Endpoint: `/api/stores/:storeId/orders/:orderId`
+   - Auth: Bearer Token or Identity Headers
+   - Success Response (200 OK):
+     {
+       "message": "Order deleted successfully",
+       "deletedId": 1727336640000
+     }
+
+6. Clear All Orders (Bulk Reset)
+   - Method: DELETE
+   - Endpoint: `/api/stores/:storeId/orders`
+   - Auth: Bearer Token or Identity Headers
+   - Success Response (200 OK):
+     {
+       "success": true,
+       "clearedCount": 8
+     }
+
+--------------------------------------------------------------------------------
+4.9 Live Analytics Telemetry
+--------------------------------------------------------------------------------
+
+1. Get Storefront Analytics
+   - Method: GET
+   - Endpoint: `/api/stores/:storeId/analytics`
+   - Auth: Bearer Token or Identity Headers
+   - Query Parameters:
+     * `timeframe`: "daily" | "weekly" | "monthly" | "yearly" (Default: "monthly")
+   - Success Response (200 OK):
+     {
+       "success": true,
+       "analytics": {
+         "totalSales": 14250,
+         "totalOrders": 32,
+         "uniqueCustomers": 28,
+         "totalProducts": 14,
+         "totalStock": 146,
+         "lowStockCount": 2,
+         "chart": {
+           "labels": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+           "values": [1400, 2600, 1950, 3400, 1800, 3100, 4200]
+         },
+         "timeframe": "monthly",
+         "lastUpdated": "2026-09-26T07:44:00.000Z"
+       },
+       // Root-level aliases for backwards compatibility
+       "totalSales": 14250,
+       "totalOrders": 32,
+       "uniqueCustomers": 28,
+       "totalProducts": 14,
+       "totalStock": 146,
+       "lowStockCount": 2,
+       "chart": {
+         "labels": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+         "values": [1400, 2600, 1950, 3400, 1800, 3100, 4200]
+       }
+     }
+
+--------------------------------------------------------------------------------
+4.10 Real-Time Server-Sent Events (SSE)
+--------------------------------------------------------------------------------
+
+1. Connect to Realtime Event Stream
+   - Method: GET
+   - Endpoint: `/api/stores/:storeId/realtime`
+   - Query Parameters:
+     * `token`: string (JWT token string when EventSource cannot pass custom headers)
+   - Headers Sent by Client:
+     * `Accept: text/event-stream`
+   - Server Headers Sent Back:
+     * `Content-Type: text/event-stream`
+     * `Cache-Control: no-cache`
+     * `Connection: keep-alive`
+     * `Access-Control-Allow-Origin: *`
+   - Behavior:
+     Keep connection open, periodically send comment/ping to prevent socket timeouts:
+     `: ping\n\n`
+     When store events occur, push formatted SSE messages (see Section 6 for event types).
+
+--------------------------------------------------------------------------------
+4.11 Google Maps Geocoding & Places
+--------------------------------------------------------------------------------
+
+1. Geocode Address String
+   - Method: POST
+   - Endpoint: `/api/maps/geocode`
+   - Auth: Bearer Token or Identity Headers
+   - Request Body:
+     {
+       "address": "Connaught Place, New Delhi"
+     }
+   - Success Response (200 OK):
+     {
+       "success": true,
+       "data": {
+         "latitude": 28.6315,
+         "longitude": 77.2167,
+         "formattedAddress": "Connaught Place, New Delhi, Delhi 110001, India",
+         "placeId": "ChIJw0Qj2W_9DDkR_Lh_v86q4uA"
+       }
+     }
+
+2. Get Place Details
+   - Method: POST
+   - Endpoint: `/api/maps/place-details`
+   - Auth: Bearer Token or Identity Headers
+   - Request Body:
+     {
+       "placeId": "ChIJw0Qj2W_9DDkR_Lh_v86q4uA"
+     }
+   - Success Response (200 OK):
+     {
+       "success": true,
+       "data": {
+         "name": "Connaught Place",
+         "formattedAddress": "Connaught Place, New Delhi, Delhi 110001, India",
+         "latitude": 28.6315,
+         "longitude": 77.2167,
+         "mapsUrl": "https://maps.google.com/?cid=..."
+       }
+     }
+
+--------------------------------------------------------------------------------
+4.12 Storefront Deployment Orchestration
+--------------------------------------------------------------------------------
+
+1. Trigger Vercel / Edge Deployment
+   - Method: POST
+   - Endpoint: `/api/stores/:storeId/deploy`
+   - Auth: Bearer Token or Identity Headers
+   - Success Response (200 OK or 202 Accepted):
+     {
+       "message": "Deployment initiated successfully",
+       "deploymentId": "dpl_827fbc923a",
+       "status": "BUILDING",               // "BUILDING" | "READY" | "ERROR"
+       "url": "https://obsidian-store-alpha.vercel.app",
+       "deploymentUrl": "https://obsidian-store-alpha.vercel.app",
+       "liveUrl": "https://obsidian.store/my-store"
+     }
+
+2. Poll Deployment Status
+   - Method: GET
+   - Endpoint: `/api/stores/:storeId/deployment-status`
+   - Auth: Bearer Token or Identity Headers
+   - Success Response (200 OK):
+     {
+       "deploymentId": "dpl_827fbc923a",
+       "status": "READY",                  // "PENDING" | "BUILDING" | "READY" | "ERROR"
+       "url": "https://obsidian-store-alpha.vercel.app",
+       "deploymentUrl": "https://obsidian-store-alpha.vercel.app",
+       "liveUrl": "https://obsidian.store/my-store",
+       "createdAt": "2026-09-26T07:44:00.000Z"
+     }
+
+--------------------------------------------------------------------------------
+4.13 Public Storefront Data
+--------------------------------------------------------------------------------
+
+1. Get Store by Slug (Public Buyer Storefront & Hydration)
+   - Method: GET
+   - Endpoint: `/api/public/store/:slug`
+   - Auth: None (Completely Public)
+   - Success Response (200 OK):
+     {
+       "store": {
+         "id": "str_01",
+         "name": "Obsidian Archive",
+         "slug": "obsidian-archive",
+         "business_type": "Apparel",
+         "currency": "₹",
+         "logo_url": "https://...",
+         "banner_url": "https://...",
+         "description": "Architectural contemporary garments.",
+         "selected_template_id": "obsidian-classic"
+       },
+       "products": [
+         {
+           "id": 101,
+           "client_id": 101,
+           "name": "Monolith Architectural Overcoat",
+           "price": 450,
+           "sellingPrice": 450,
+           "mrp": 520,
+           "discountPercent": 13,
+           "stock": 12,
+           "emoji": "🧥",
+           "category": "Apparel",
+           "brand": "Obsidian",
+           "types": ["Luxury"],
+           "description": "Tailored wool-blend architectural overcoat...",
+           "image_url": "https://...",
+           "status": "active"
+         }
+       ],
+       "template": {
+         "id": "obsidian-classic",
+         "name": "Obsidian Classic"
+       }
+     }
+
+================================================================================
+5. DATA MODELS & JSON SCHEMA DEFINITIONS
+================================================================================
+
+Store Entity:
+{
+  "id": "string (UUID or unique ID)",
+  "name": "string (1-100 characters)",
+  "slug": "string (lowercase, alphanumeric with hyphens)",
+  "owner_name": "string",
+  "business_type": "string",
+  "custom_business_type": "string (optional)",
+  "custom_options": "object (key-value properties)",
+  "address": "string",
+  "address_method": "manual | google_maps",
+  "currency": "₹ | $ | € | £",
+  "logo_url": "string (URL) | null",
+  "banner_url": "string (URL) | null",
+  "selected_template_id": "string",
+  "latitude": "number (optional)",
+  "longitude": "number (optional)",
+  "created_at": "ISO timestamp",
+  "updated_at": "ISO timestamp"
+}
+
+Product Entity:
+{
+  "id": "number | string",
+  "client_id": "number (optional)",
+  "store_id": "string",
+  "name": "string",
+  "description": "string",
+  "price": "number",
+  "sellingPrice": "number",
+  "mrp": "number",
+  "discountPercent": "number",
+  "discountPrice": "number (optional)",
+  "stock": "number (integer >= 0)",
+  "emoji": "string (e.g. 🧥, ⌚, 📦)",
+  "category": "string",
+  "brand": "string (optional)",
+  "types": "array of strings",
+  "image": "string (URL) | null",
+  "image_url": "string (URL) | null",
+  "status": "active | archived | draft",
+  "created_at": "ISO timestamp"
+}
+
+Order Entity:
+{
+  "id": "number | string",
+  "store_id": "string",
+  "customerName": "string",
+  "customerPhone": "string",
+  "customerAddress": "string",
+  "paymentMethod": "cod | upi | card",
+  "productName": "string",
+  "productId": "number | string",
+  "quantity": "number (integer >= 1)",
+  "totalPrice": "number",
+  "totalAmount": "number",
+  "status": "pending | processing | completed | cancelled",
+  "date": "string (e.g. 'Sep 26, 2026' or ISO timestamp)",
+  "items": [
+    {
+      "productId": "number | string",
+      "name": "string",
+      "price": "number",
+      "quantity": "number"
+    }
+  ],
+  "created_at": "ISO timestamp"
+}
+
+================================================================================
+6. REAL-TIME EVENT STREAMING CONTRACT (SSE)
+================================================================================
+The frontend subscribes to the stream via:
+`new EventSource("/api/stores/:storeId/realtime?token=...")`
+
+The frontend registers listeners for these exact event names:
+1. `ORDER_CREATED`: Dispatched when a buyer places a new order.
+   Payload: { "order": { ... }, "remainingStock": number }
+2. `ORDER_STATUS_UPDATED`: Dispatched when order changes status.
+   Payload: { "orderId": ..., "status": "completed" }
+3. `ORDER_UPDATED`: Dispatched on order edits.
+   Payload: { "order": { ... } }
+4. `ORDER_DELETED`: Dispatched when an order is deleted.
+   Payload: { "deletedId": ... }
+5. `STOCK_UPDATED`: Dispatched when product stock increments/decrements.
+   Payload: { "productId": ..., "stock": number }
+6. `PRODUCT_CREATED`: Dispatched when a new product is added.
+   Payload: { "product": { ... } }
+7. `PRODUCT_UPDATED`: Dispatched when product details change.
+   Payload: { "product": { ... } }
+8. `PRODUCT_DELETED`: Dispatched when a product is deleted.
+   Payload: { "deletedId": ... }
+9. `STORE_UPDATED`: Dispatched when store metadata changes.
+   Payload: { "store": { ... } }
+10. `STORE_DEPLOYMENT_UPDATED`: Dispatched when build status updates.
+    Payload: { "status": "READY", "liveUrl": "https://..." }
+
+Format in SSE Stream:
+```
+event: ORDER_CREATED
+data: {"order":{"id":1727336640000,"customerName":"Alexander Vance","totalPrice":450}}
+
+event: STOCK_UPDATED
+data: {"productId":101,"stock":11}
+```
+
+================================================================================
+7. ERROR HANDLING & HTTP STATUS CODES
+================================================================================
+The frontend parses errors by inspecting `res.json()`, searching for `message` or
+`error`. Every 4xx/5xx error MUST be returned in standard JSON format:
+
+```json
+{
+  "message": "Specific explanation of what went wrong"
+}
+```
+
+Standard Status Codes Used:
+- `200 OK`: Request succeeded
+- `201 Created`: Resource successfully created
+- `400 Bad Request`: Validation failure (missing required field, invalid format)
+- `401 Unauthorized`: Missing or invalid Bearer token
+- `403 Forbidden`: Authenticated user does not have permission for this store
+- `404 Not Found`: Store, Product, or Order not found
+- `409 Conflict`: Duplicate store slug or entity conflict
+- `429 Too Many Requests`: Rate limit exceeded
+- `500 Internal Server Error`: Unhandled backend exception
+
+================================================================================
+8. RECOMMENDED DATABASE SCHEMA (RELATIONAL / SUPABASE POSTGRES)
+================================================================================
+
+Table: `users`
+- id (UUID, Primary Key)
+- email (VARCHAR, Unique, Not Null)
+- password_hash (VARCHAR, Not Null)
+- full_name (VARCHAR)
+- created_at (TIMESTAMPTZ, Default NOW())
+
+Table: `stores`
+- id (UUID / VARCHAR, Primary Key)
+- user_id (UUID, References users.id, On Delete Cascade)
+- name (VARCHAR, Not Null)
+- slug (VARCHAR, Unique, Not Null)
+- owner_name (VARCHAR)
+- business_type (VARCHAR)
+- custom_business_type (VARCHAR)
+- custom_options (JSONB)
+- address (TEXT)
+- address_method (VARCHAR)
+- currency (VARCHAR, Default '₹')
+- logo_url (TEXT)
+- banner_url (TEXT)
+- selected_template_id (VARCHAR, Default 'obsidian-classic')
+- latitude (DOUBLE PRECISION)
+- longitude (DOUBLE PRECISION)
+- created_at (TIMESTAMPTZ, Default NOW())
+- updated_at (TIMESTAMPTZ, Default NOW())
+
+Table: `products`
+- id (BIGSERIAL / UUID, Primary Key)
+- client_id (BIGINT)
+- store_id (UUID / VARCHAR, References stores.id, On Delete Cascade)
+- name (VARCHAR, Not Null)
+- description (TEXT)
+- price (NUMERIC(10,2), Not Null)
+- selling_price (NUMERIC(10,2), Not Null)
+- mrp (NUMERIC(10,2), Not Null)
+- discount_percent (INT, Default 0)
+- discount_price (NUMERIC(10,2))
+- stock (INT, Default 0)
+- emoji (VARCHAR, Default '📦')
+- category (VARCHAR, Default 'General')
+- brand (VARCHAR)
+- types (TEXT[])
+- image_url (TEXT)
+- status (VARCHAR, Default 'active')
+- created_at (TIMESTAMPTZ, Default NOW())
+- updated_at (TIMESTAMPTZ, Default NOW())
+
+Table: `orders`
+- id (BIGSERIAL / VARCHAR, Primary Key)
+- store_id (UUID / VARCHAR, References stores.id, On Delete Cascade)
+- customer_name (VARCHAR, Not Null)
+- customer_phone (VARCHAR)
+- customer_address (TEXT)
+- payment_method (VARCHAR, Default 'cod')
+- product_name (VARCHAR)
+- product_id (BIGINT / VARCHAR)
+- quantity (INT, Default 1)
+- total_price (NUMERIC(10,2), Not Null)
+- total_amount (NUMERIC(10,2), Not Null)
+- status (VARCHAR, Default 'processing')
+- items (JSONB)
+- created_at (TIMESTAMPTZ, Default NOW())
+- updated_at (TIMESTAMPTZ, Default NOW())
+
+Table: `deployments`
+- id (VARCHAR, Primary Key)
+- store_id (UUID / VARCHAR, References stores.id, On Delete Cascade)
+- status (VARCHAR, Default 'BUILDING')
+- deployment_url (TEXT)
+- live_url (TEXT)
+- created_at (TIMESTAMPTZ, Default NOW())
+
+================================================================================
+9. ENVIRONMENT VARIABLES CHECKLIST
+================================================================================
+The backend server requires the following environment variables:
+
+```env
+# Server Configuration
+NODE_ENV=development
+PORT=4000
+ALLOWED_ORIGIN=https://obsidian-alpha-wheat.vercel.app,http://localhost:3000,http://localhost:5173
+
+# Database & Storage (Supabase Postgres & S3 Storage)
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_JWT_SECRET=your_supabase_jwt_secret
+SUPABASE_STORAGE_BUCKET=storefront-assets
+
+# Vercel Deployment Integration (Optional / Mockable)
+VERCEL_API_TOKEN=your_vercel_token
+VERCEL_TEAM_ID=
+VERCEL_PROJECT_BASE_DOMAIN=obsidian.store
+
+# Google Maps Platform (Optional / Mockable)
+GOOGLE_MAPS_API_KEY=your_google_maps_api_key
+```
+
+================================================================================
+END OF SPECIFICATION DOCUMENT
+================================================================================

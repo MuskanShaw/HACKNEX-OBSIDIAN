@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { supabase } from "@/lib/supabase";
 import "./dashboard.css";
+import AIChatAssistant from "@/components/AIChatAssistant";
 
 
 
@@ -4692,6 +4693,37 @@ export default function DashboardPage() {
         <div className="db-toast-icon">✓</div>
         <span>{toastMessage}</span>
       </div>
+
+      {/* ── FRONTEND-ONLY AI ASSISTANT / CHATBOT ── */}
+      <AIChatAssistant
+        products={products}
+        orders={orders}
+        shopName={shopName}
+        ownerName={ownerName}
+        businessType={businessType}
+        customBusinessType={customBusinessType}
+        currency={currency}
+        logoUrl={logoUrl}
+        bannerUrl={bannerUrl}
+        shopAddress={shopAddress}
+        activeTab={activeTab}
+        onNavigateTab={(tab) => setActiveTab(tab)}
+        onOpenAddProduct={() => {
+          setEditingProduct(null);
+          setFormName("");
+          setFormBrand("");
+          setSelectedTypes([]);
+          setFormPrice("");
+          setFormSellingPrice("");
+          setFormMrp("");
+          setFormStock("10");
+          setFormEmoji("📦");
+          setFormCategory("General");
+          setFormDesc("");
+          setFormImage("");
+          setShowProductModal(true);
+        }}
+      />
     </div>
   );
 }
