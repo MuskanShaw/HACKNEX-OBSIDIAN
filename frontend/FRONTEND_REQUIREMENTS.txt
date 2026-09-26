@@ -1,44 +1,65 @@
 ================================================================================
 OBSIDIAN COMMERCE ENGINE - FRONTEND REQUIREMENTS SPECIFICATION
 ================================================================================
-Generated for: OBSIDIAN Digital Commerce Platform (Frontend Architecture)
-Framework: Next.js 16 (App Router + Turbopack)
-UI Library: React 19 / TypeScript 5
-Styling: Vanilla CSS Design System + Tailwind CSS v4
-Motion & 3D: Lenis Momentum Scroll, Framer Motion, GSAP, Three.js / React Three Fiber
+Document Version: 2.0.0
+Architecture: Supabase Authentication + PostgreSQL + Next.js 16 + Express Backend
+Platform: OBSIDIAN Digital Commerce Engine
+ 
+--------------------------------------------------------------------------------
+1. EXECUTIVE ARCHITECTURE OVERVIEW
+--------------------------------------------------------------------------------
+The OBSIDIAN frontend is a luxury editorial digital commerce platform built on
+Next.js (App Router, Turbopack, React 19). It interfaces directly with the 
+OBSIDIAN Express/TypeScript backend API.
+
+KEY ARCHITECTURAL RULES:
+1. Pure Supabase Authentication:
+   - Primary user identity is the authenticated Supabase UUID (`auth.uid()`).
+   - The frontend communicates with the backend via standard HTTP Bearer tokens:
+     `Authorization: Bearer <supabase_access_token>`.
+   - No custom JWT signing or Auth0 tokens are permitted.
+2. Canonical Profile Table:
+   - The user profile is canonically synchronized in `public.profiles` linked to
+     `auth.users(id)`.
+   - Read operations do NOT create or write user records.
+   - Profile sync only occurs on signup, login, or explicit `/api/auth/sync`.
+3. High Performance & Zero Database Polling:
+   - Real-time updates occur via Server-Sent Events (`EventSource` on `/api/stores/:id/realtime`).
+   - Dashboard hydration is unified via `GET /api/account/state`.
+   - Liveness checking uses lightweight `GET /health` (0ms DB load).
 
 --------------------------------------------------------------------------------
-1. TECHNOLOGY STACK & SYSTEM PREREQUISITES
+2. TECHNOLOGY STACK & DEPENDENCY CONTRACT
 --------------------------------------------------------------------------------
-- Framework: Next.js 16.3.3 (React Server & Client Components, Turbopack)
-- Core Language: TypeScript 5.0+ (Strict mode enabled)
-- UI Library: React 19.2.8 & React DOM 19.2.8
-- Motion Physics:
-  * Lenis v1.3.26 (Inertial smooth scrolling interpolation)
-  * Framer Motion v13.1.1 (Component entrance & micro-interactions)
-  * GSAP v3.15.0 (Timeline & kinetic transformations)
-- 3D Rendering Canvas:
-  * Three.js v0.185.1
-  * @react-three/fiber v9.7.0
-  * @react-three/drei v10.7.8
-- Icons: Lucide React v1.35.0
-- CSS Engine: Tailwind CSS v4 (@tailwindcss/postcss) & Glassmorphic Custom Properties
-- Runtime Requirements: Node.js >= 18.17.0, npm >= 9.0.0
+- Framework: Next.js 16 (App Router with Turbopack)
+- UI Library: React 19.x & React DOM 19.x
+- Language: TypeScript 5.x (Strict Type Checking)
+- Motion & Animation:
+  * Lenis (Inertial smooth scrolling interpolation)
+  * Framer Motion (Page transitions, modal entrances, micro-animations)
+  * GSAP (Kinetic typography, timeline animations, scroll-triggered parallax)
+- 3D Canvas Showcase:
+  * Three.js / @react-three/fiber / @react-three/drei
+- Icons: Lucide React
+- Styling System:
+  * Vanilla CSS Design System + Tailwind CSS v4 (@tailwindcss/postcss)
+  * Custom Glassmorphic CSS custom properties and specular gradients
+- Runtime: Node.js >= 18.17.0, npm >= 9.0.0
 
 --------------------------------------------------------------------------------
-2. APPLICATION ROUTING & VIEWPORT HIERARCHY
+3. APPLICATION ROUTING & VIEWPORT HIERARCHY
 --------------------------------------------------------------------------------
-| Route Path       | Source File                     | Description & Surface Target                               |
-| :--------------- | :------------------------------ | :---------------------------------------------------------- |
-| `/`              | `src/app/page.tsx`              | High-fashion editorial showcase with kinetic physics & 3D   |
-| `/home` (`/p1`)  | `src/app/p1/page.tsx`           | Merchant store onboarding, address geolocation & setup flow |
-| `/dashboard` (`/p2`)| `src/app/p2/page.tsx`        | Merchant command center: real-time analytics & catalog ops  |
-| `/store/[slug]`  | `src/app/store/[slug]/page.tsx` | Autonomous public buyer storefront with cart & checkout    |
-| `/checkout`      | `src/app/checkout/page.tsx`     | Dedicated full-page order completion & receipt generator    |
-| `/login`         | `src/app/login/page.tsx`        | Merchant authentication & password recovery hub             |
-| `/p3`            | `public/p3.html`                | Dedicated interactive WebGL / Three.js 3D catalog showcase  |
+| Route Path           | Source File                      | Description & Capabilities                                   |
+| :------------------- | :------------------------------- | :------------------------------------------------------------ |
+| `/`                  | `src/app/page.tsx`               | High-fashion editorial landing showcase with 3D canvas       |
+| `/home` (`/p1`)      | `src/app/p1/page.tsx`            | Merchant store onboarding, address geolocation & setup flow  |
+| `/dashboard` (`/p2`) | `src/app/p2/page.tsx`            | Merchant command center: real-time analytics & catalog ops    |
+| `/store/[slug]`      | `src/app/store/[slug]/page.tsx`  | Autonomous public buyer storefront with cart & checkout      |
+| `/checkout`          | `src/app/checkout/page.tsx`      | Dedicated full-page order completion & receipt generator      |
+| `/login`             | `src/app/login/page.tsx`         | Merchant Supabase authentication & password recovery hub      |
+| `/p3`                | `public/p3.html`                 | Dedicated interactive WebGL / Three.js 3D catalog showcase   |
 
-Rewrite & Redirect Map (in next.config.ts):
+Next.js Rewrites & Proxy Map (`next.config.ts`):
 - `/home`       -> Rewritten/redirected to `/p1`
 - `/dashboard`  -> Rewritten/redirected to `/p2`
 - `/p3`         -> Rewritten to `/p3.html`
@@ -47,179 +68,390 @@ Rewrite & Redirect Map (in next.config.ts):
 - `/docs`       -> Proxied to `${BACKEND_URL}/api/docs`
 
 --------------------------------------------------------------------------------
-3. DETAILED COMPONENT ARCHITECTURE & SURFACES
+4. AUTHENTICATION & IDENTITY ARCHITECTURE (SUPABASE AUTH)
 --------------------------------------------------------------------------------
-
-A. Editorial Landing Layer (`/`)
-- SiteHeader (`src/components/SiteHeader.tsx`):
-  * Sticky glassmorphic navigation masthead
-  * Interactive navigation links with hover micro-animations
-  * Quick status indicator & launch modal trigger
-- HeroSection (`src/components/HeroSection.tsx`):
-  * High-impact typography with fluid responsive scaling
-  * Kinetic pointer tracker & interactive cursor spotlight
-  * Call-to-actions ("Launch Store", "Explore Showcase")
-- StorySection (`src/components/StorySection.tsx`):
-  * Editorial narrative grid with alternating media & typographic elements
-  * GSAP scroll-triggered parallax effects
-- DetailSection (`src/components/DetailSection.tsx`):
-  * Feature matrix highlighting autonomous storefront generation
-  * Interactive feature cards with subtle border glows
-- TypographySection (`src/components/TypographySection.tsx`):
-  * Massive kinetic text animations with variable font-weight interpolation
-- FinalSection (`src/components/FinalSection.tsx`):
-  * Closing editorial statement with interactive particle background
-- SiteFooter (`src/components/SiteFooter.tsx`):
-  * Clean copyright, system telemetry, and social navigation links
-- CustomCursor (`src/components/CustomCursor.tsx`):
-  * Physics-based dual-ring reticle cursor tracking mouse position & velocity
-  * Adaptive sizing when hovering over clickable elements
-- SmoothScroll (`src/components/SmoothScroll.tsx`):
-  * Wraps root layout with Lenis momentum physics provider
-
-B. Merchant Onboarding Surface (`/home` or `/p1`)
-- Step-by-step store creator:
-  * Store Name & Slug generator (with real-time slug availability check)
-  * Business category selector (Fashion, Tech, Luxury, Artisan, etc.)
-  * Currency configuration (Default: ₹ INR, $, €, £)
-  * Location & Address selection (Manual input or Google Maps Geocoding)
-  * Brand asset upload preview (Logo, Banner image)
-  * Storefront template selection (Minimal, Glass, High-Contrast, Darkroom)
-  * Direct synchronization with `POST /api/stores` backend endpoint
-
-C. Merchant Command Center (`/dashboard` or `/p2`)
-- Viewport-optimized layout: Two-column symmetric grid fitting 100vh without vertical fatigue
-- Live Interactive SVG Analytics:
-  * Dynamic timeframe toggling (`Daily`, `Weekly`, `Monthly`, `Yearly`)
-  * Pure SVG area curves with gradient fills and live hover data points
-  * Revenue, Order Count, Average Order Value (AOV), and Conversion Rate cards
-- Catalog & Inventory Telemetry:
-  * Live product grid with thumbnail, stock level, price, and category badges
-  * Low-stock warnings (< 5 units) with instant "+10 Restock" quick action
-  * Add/Edit Product modal with emoji picker, image upload, and category tagging
-  * Delete product with optimistic UI update
-- Order Fulfillment Engine:
-  * Real-time order list with customer details, item counts, and totals
-  * Status transition selector (`Pending` -> `Processing` -> `Completed` -> `Cancelled`)
-  * Delete/Archive order capability
-- Storefront Hub & Sharing:
-  * One-click public storefront URL copy to clipboard
-  * QR Code generator modal for mobile storefront testing
-  * Live store preview launcher (`/store/[slug]`)
-  * Store Branding & Media Assets management (Supabase Storage upload integration)
-
-D. Autonomous Buyer Storefront (`/store/[slug]`)
-- Dynamic route loading store data via `GET /api/stores/[slug]`
-- Public product catalog with category filtering and keyword search
-- Interactive Product Card:
-  * Image carousel / emoji fallback
-  * Stock badge ("In Stock", "Only X Left", "Out of Stock")
-  * Price display with MRP markdown and discount percentage
-  * "Add to Bag" instant action with cart count badge animation
-- Slide-over Cart Drawer:
-  * Real-time cart calculation (Subtotal, Tax, Shipping, Grand Total)
-  * Quantity increment/decrement/remove actions
-  * LocalStorage cart persistence per store
-- Integrated Checkout Modal:
-  * Customer Name, Email, Phone, and Delivery Address inputs
-  * Order review and placement via `POST /api/orders`
-  * Instant receipt generation and order tracking ID
+1. Token Storage & Lifecycle:
+   - The frontend stores the active Supabase JWT in `localStorage`:
+     * `obsidian_token`: Raw access token string
+     * `obsidian_session`: JSON object `{ access_token, token_type, user }`
+2. Authentication Headers:
+   - All protected backend API requests must provide:
+     `Authorization: Bearer <supabase_access_token>`
+   - For Server-Sent Events (SSE) where custom headers are unsupported by browser
+     `EventSource`, append the token as a query parameter:
+     `GET /api/stores/:id/realtime?token=<supabase_access_token>`
+3. Identity Mapping:
+   - Frontend components use the Supabase User UUID as `user.id`.
+   - Never use email as a database primary key.
+   - User roles default to `'merchant'`.
+4. Authentication Flows:
+   - Signup: `POST /api/auth/signup`
+   - Login: `POST /api/auth/login` (supports email/password or Supabase Bearer token)
+   - Profile Verification: `GET /api/auth/me`
+   - Explicit Profile Sync: `POST /api/auth/sync`
+   - Password Update: `POST /api/auth/update-password`
 
 --------------------------------------------------------------------------------
-4. STATE MANAGEMENT & LOCALSTORAGE CONTRACTS
+5. COMPLETE BACKEND API SPECIFICATION & FRONTEND CONTRACTS
 --------------------------------------------------------------------------------
-The frontend uses synchronous LocalStorage for offline resiliency, fallback state,
-and session management:
 
-| Key Name              | Data Type | Purpose & Lifecycle                                         |
-| :-------------------- | :-------- | :---------------------------------------------------------- |
-| `obsidian_token`      | String    | JWT Bearer token obtained from login/registration           |
-| `obsidian_session`    | JSON Object| Current authenticated merchant profile (`id`, `email`, `role`)|
-| `obsidian_store`      | JSON Object| Currently active store configuration & branding settings    |
-| `obsidian_products`   | JSON Array| Cached catalog items for offline demo mode                  |
-| `obsidian_orders`     | JSON Array| Cached orders for instant rendering and optimistic updates  |
-| `obsidian_cart_[slug]`| JSON Array| Per-store customer shopping cart state (`items`, `quantities`)|
+A. SYSTEM & HEALTH
+- GET /health
+  * Lightweight liveness probe (0ms DB query).
+  * Returns: `{ "status": "ok", "service": "obsidian-backend", "timestamp": "...", "environment": "..." }`
+- GET /health/db
+  * Dedicated Supabase connectivity probe.
+  * Returns: `{ "status": "ok", "service": "obsidian-backend", "database": "connected", ... }`
+- GET /api/docs/swagger.json
+  * Full OpenAPI 3.0.3 specification.
+
+B. AUTHENTICATION & ACCOUNT
+- POST /api/auth/signup
+  * Request Body: `{ "email": string, "password": string, "full_name"?: string }`
+  * Response: `{ "message": string, "user": UserDTO, "token": string, "session": object }`
+- POST /api/auth/login
+  * Accepts: `{ "email": string, "password": string }` OR Bearer token in header
+  * Response: `{ "message": string, "user": UserDTO, "token": string, "session": object }`
+- GET /api/auth/me
+  * Header: `Authorization: Bearer <token>`
+  * Response: `{ "user": { "id": string, "email": string, "full_name"?: string, "avatar_url"?: string, "role"?: string } }`
+- POST /api/auth/sync
+  * Header: `Authorization: Bearer <token>`
+  * Response: `{ "message": string, "user": UserDTO }`
+- POST /api/auth/update-password
+  * Header: `Authorization: Bearer <token>`
+  * Request Body: `{ "password": string }`
+  * Response: `{ "success": boolean, "message": string }`
+
+C. UNIFIED DASHBOARD STATE & HYDRATION
+- GET /api/account/state
+  * Header: `Authorization: Bearer <token>`
+  * Description: Single source of truth for dashboard state. Replaces multiple requests.
+  * Response:
+    ```json
+    {
+      "success": true,
+      "user": { "id": "...", "email": "...", "fullName": "...", "ownerName": "..." },
+      "store": { "id": "...", "name": "...", "slug": "...", "currency": "₹", "businessType": "...", ... },
+      "products": [ { "id": 1001, "name": "...", "price": 99.99, "stock": 10, "emoji": "📦", ... } ],
+      "orders": [ { "id": 5001, "customerName": "...", "total": 99.99, "status": "pending", "date": "..." } ],
+      "analytics": { "totalSales": 999.9, "totalOrders": 12, "uniqueCustomers": 8, "chart": { ... } }
+    }
+    ```
+- PUT /api/account/state
+  * Header: `Authorization: Bearer <token>`
+  * Request Body: `{ "store"?: object, "products"?: array, "orders"?: array }`
+  * Response: `{ "success": true, "message": string, "state": DashboardStateDTO }`
+- POST /api/account/import-local-state
+  * Header: `Authorization: Bearer <token>`
+  * Description: One-time migration endpoint from browser `localStorage` into PostgreSQL.
+  * Request Body: `{ "store": object, "products": array, "orders": array }`
+  * Response: `{ "success": true, "message": string, "state": DashboardStateDTO }`
+
+D. STORE OPERATIONS
+- GET /api/stores/me
+  * Header: `Authorization: Bearer <token>`
+  * Response: `{ "stores": StoreDTO[], "store": StoreDTO, "defaultStore": StoreDTO }`
+- POST /api/stores
+  * Header: `Authorization: Bearer <token>`
+  * Request Body:
+    ```json
+    {
+      "name": "My Boutique",
+      "business_type": "fashion",
+      "currency": "INR",
+      "address": "123 Fashion Street, Mumbai",
+      "latitude": 19.0760,
+      "longitude": 72.8777,
+      "selected_template_id": "obsidian-classic"
+    }
+    ```
+- GET /api/stores/:id
+  * Response: `{ "store": StoreDTO, "formattedStore": StoreDTO }`
+- PATCH /api/stores/:id
+  * Request Body: Partial Store fields (name, description, contact_email, phone, etc.)
+- PATCH /api/stores/:id/location
+  * Request Body: `{ "latitude": number, "longitude": number, "formattedAddress"?: string, "placeId"?: string }`
+- POST /api/stores/:id/select-template
+  * Request Body: `{ "templateId": string }`
+- POST /api/stores/:id/upload
+  * Header: `Authorization: Bearer <token>`
+  * Request: `multipart/form-data` with fields:
+    * `file`: Binary image (JPEG, PNG, WebP, SVG; max 5MB)
+    * `category`: `'logo'` | `'banner'` | `'product'`
+    * `productId` (optional): Numeric or UUID product identifier
+  * Response: `{ "message": string, "url": string, "path": string }`
+
+E. PRODUCT CATALOG
+- GET /api/stores/:id/products
+  * Query parameters: `?search=...&category=...&status=active`
+  * Response: `{ "products": FrontendProductDTO[], "rawProducts": ProductRecord[] }`
+- POST /api/stores/:id/products
+  * Header: `Authorization: Bearer <token>`
+  * Request Body:
+    ```json
+    {
+      "id": 1001,
+      "name": "Luxury Silk Robe",
+      "price": 149.99,
+      "discountPrice": 129.99,
+      "stock": 15,
+      "emoji": "👘",
+      "category": "Apparel",
+      "description": "Pure mulberry silk robe",
+      "image": "https://..."
+    }
+    ```
+- PUT /api/stores/:id/products/:productId
+  * Header: `Authorization: Bearer <token>`
+  * Accepts numeric `client_id` or UUID for `:productId`
+- PATCH /api/stores/:id/products/:productId/stock
+  * Header: `Authorization: Bearer <token>`
+  * Request Body: `{ "delta"?: number, "stock"?: number }`
+  * Instant inventory increment/decrement (e.g. `delta: -1` on purchase, `delta: +10` on restock).
+- DELETE /api/stores/:id/products/:productId
+  * Header: `Authorization: Bearer <token>`
+
+F. ORDER MANAGEMENT
+- GET /api/stores/:id/orders
+  * Header: `Authorization: Bearer <token>`
+  * Response: `{ "orders": FrontendOrderDTO[], "rawOrders": OrderRecord[] }`
+- POST /api/stores/:id/orders
+  * Public buyer endpoint (no auth required for checkout).
+  * Supports Nested Line Items (Cart Checkout) or Legacy Single Product:
+    ```json
+    {
+      "customerName": "Alice Smith",
+      "customerEmail": "alice@example.com",
+      "customerPhone": "+91 9876543210",
+      "customerAddress": "42 Ocean Drive, Mumbai",
+      "paymentMethod": "Cash on Delivery",
+      "items": [
+        {
+          "productId": 1001,
+          "name": "Luxury Silk Robe",
+          "quantity": 2,
+          "unitPrice": 129.99,
+          "emoji": "👘"
+        }
+      ],
+      "total": 259.98
+    }
+    ```
+  * Response: `{ "message": "Order placed successfully", "order": FrontendOrderDTO, "remainingStock": 13 }`
+- PATCH /api/stores/:id/orders/:orderId/status
+  * Header: `Authorization: Bearer <token>`
+  * Request Body: `{ "status": "pending" | "processing" | "completed" | "cancelled" }`
+- DELETE /api/stores/:id/orders/:orderId
+  * Header: `Authorization: Bearer <token>`
+
+G. REAL-TIME SERVER-SENT EVENTS (SSE)
+- Connection URL:
+  `GET /api/stores/:id/realtime?token=<supabase_access_token>`
+- Protocol: HTML5 Server-Sent Events (`EventSource`)
+- Automatic Events Emitted by Backend:
+  * `ORDER_CREATED`: New customer checkout placed
+  * `ORDER_STATUS_UPDATED`: Merchant transitioned order status
+  * `ORDER_DELETED`: Order archived or removed
+  * `STOCK_UPDATED`: Inventory adjusted or decremented by order
+  * `PRODUCT_CREATED` / `PRODUCT_UPDATED` / `PRODUCT_DELETED`: Catalog updates
+  * `STORE_UPDATED`: Store branding or settings changed
+  * `STORE_DEPLOYMENT_UPDATED`: Live URL or deployment status modified
+- Frontend Hook Implementation:
+  Use `api.connectRealtime(storeId, (event) => { ... })` from `src/lib/api.ts`
+  to update local React state and invalidate queries optimistically without page reloads.
+
+H. PUBLIC STOREFRONT (BUYER ROUTE)
+- GET /api/public/store/:slug
+  * Public endpoint with zero authorization required.
+  * Sanitized: Never exposes merchant `user_id`, private secrets, or internal logs.
+  * Response:
+    ```json
+    {
+      "store": {
+        "id": "...",
+        "name": "Obsidian Reserve",
+        "slug": "obsidian-reserve",
+        "businessType": "luxury",
+        "currency": "₹",
+        "selectedTemplateId": "obsidian-classic",
+        "logoUrl": "...",
+        "bannerUrl": "..."
+      },
+      "products": [
+        { "id": 1001, "name": "...", "price": 99.99, "stock": 10, "emoji": "📦", "status": "active" }
+      ],
+      "template": { "id": "obsidian-classic", "name": "Obsidian Classic", ... }
+    }
+    ```
+
+I. GOOGLE MAPS PLATFORM GEOLOCATION
+- POST /api/maps/geocode
+  * Request Body: `{ "address": "Marine Drive, Mumbai" }`
+  * Response: `{ "success": true, "data": { "latitude": 18.9432, "longitude": 72.8234, "formattedAddress": "..." } }`
+- POST /api/maps/place-details
+  * Request Body: `{ "placeId": "ChIJ..." }`
+  * Zero Secret Rule: Google Maps API key is kept strictly backend-side and NEVER returned to the client.
+
+J. VERCEL STOREFRONT DEPLOYMENT
+- POST /api/stores/:id/deploy
+  * Header: `Authorization: Bearer <token>`
+  * Response: `{ "message": string, "liveUrl": string, "deploymentId": string, "status": "READY" }`
+- GET /api/stores/:id/deployment-status
+  * Header: `Authorization: Bearer <token>`
+  * Response: `{ "deploymentId": string, "status": "READY", "liveUrl": string }`
+  * Zero Secret Rule: Vercel project tokens and deployment secrets are never returned in response bodies.
 
 --------------------------------------------------------------------------------
-5. BACKEND API CONSUMPTION & CLIENT CONTRACT (`src/lib/api.ts`)
+6. DATA CONTRACTS & TYPE INTERFACES
 --------------------------------------------------------------------------------
-All API calls pass through `API_BASE_URL` with automatic Bearer token injection:
 
-- Base URL Resolution:
-  1. `process.env.NEXT_PUBLIC_BACKEND_URL`
-  2. `process.env.NEXT_PUBLIC_API_URL`
-  3. Fallback: `https://hacknex-obsidian.onrender.com`
+The frontend TypeScript contracts must adhere to the following DTO shapes:
 
-- Auth Header:
-  `Authorization: Bearer <obsidian_token>` (injected on all protected requests)
+```typescript
+// User Profile (Public Profiles)
+export interface AuthenticatedUser {
+  id: string; // Supabase auth.users UUID
+  email: string;
+  fullName?: string | null;
+  ownerName?: string | null;
+  avatarUrl?: string | null;
+  role?: string | null;
+}
 
-- Consumed Endpoints:
-  * `POST   /api/auth/register`       - Register new merchant account
-  * `POST   /api/auth/login`          - Merchant login and token issuance
-  * `GET    /api/auth/me`             - Verify token and fetch merchant profile
-  * `POST   /api/stores`              - Create new store configuration
-  * `GET    /api/stores/my-store`     - Fetch merchant's active store
-  * `PUT    /api/stores/[id]`         - Update store settings & branding
-  * `GET    /api/stores/[slug]`       - Fetch public store data by slug
-  * `GET    /api/products`            - List products for active store
-  * `POST   /api/products`            - Add new product to store
-  * `PUT    /api/products/[id]`       - Update existing product or stock
-  * `DELETE /api/products/[id]`       - Remove product from store
-  * `GET    /api/orders`              - List incoming store orders
-  * `POST   /api/orders`              - Place customer order from storefront
-  * `PATCH  /api/orders/[id]/status`  - Update order fulfillment status
-  * `GET    /api/analytics/dashboard` - Fetch aggregated revenue and sales trends
+// Store Configuration
+export interface StoreDTO {
+  id: string; // UUID
+  userId: string; // auth.uid
+  ownerId?: string | null;
+  name: string;
+  storeName?: string;
+  slug: string;
+  businessType: string;
+  currency: string;
+  logoUrl?: string | null;
+  bannerUrl?: string | null;
+  contactEmail?: string | null;
+  contactPhone?: string | null;
+  address?: string | null;
+  formattedAddress?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  placeId?: string | null;
+  selectedTemplateId: string;
+  liveUrl?: string | null;
+  isDeployed?: boolean;
+}
 
---------------------------------------------------------------------------------
-6. STYLING SYSTEM & DESIGN TOKENS
---------------------------------------------------------------------------------
-- Design Paradigm: Editorial Luxury Glassmorphism & High-Contrast Cyber Darkroom
-- Color Palette:
-  * Background Deep: `#050505` / `#0a0a0c`
-  * Glass Surface: `rgba(255, 255, 255, 0.03)` to `rgba(255, 255, 255, 0.08)`
-  * Glass Border: `rgba(255, 255, 255, 0.12)`
-  * Text Primary: `#ffffff` / `#f3f4f6`
-  * Text Muted: `#9ca3af` / `#6b7280`
-  * Accent Emerald: `#10b981` (Success, Stock Positive, Restock Action)
-  * Accent Amber: `#f59e0b` (Pending, Low Stock Alerts)
-  * Accent Rose: `#f43f5e` (Cancellations, Deletions, Urgent Alerts)
-  * Accent Indigo / Violet: `#6366f1` / `#8b5cf6` (Branding & Active Highlights)
-- Typography:
-  * Editorial Serif / Modern Display: Syne, Cinzel, or Playfair Display
-  * UI Body & Telemetry: Inter, Geist Sans, Roboto Mono for metrics
-- Blur & Glass Effects:
-  * Backdrop filter: `blur(16px)` to `blur(24px)`
-  * Specular border highlights with 1px semi-transparent gradients
+// Product (Frontend Model with numeric ID compatibility)
+export interface FrontendProductDTO {
+  id: number; // Client-facing numeric identifier
+  backendId?: string; // PostgreSQL UUID
+  name: string;
+  price: number;
+  discountPrice?: number | null;
+  stock: number;
+  emoji: string;
+  category: string;
+  description?: string | null;
+  image?: string | null;
+  imageUrl?: string | null;
+  status: 'active' | 'draft' | 'archived';
+}
 
---------------------------------------------------------------------------------
-7. ENVIRONMENT VARIABLES SPECIFICATION (.env.local)
---------------------------------------------------------------------------------
-```env
-# Backend API URL (Default production backend on Render)
-# For local development with a local backend, change to: http://localhost:8000
-NEXT_PUBLIC_BACKEND_URL=https://hacknex-obsidian.onrender.com
-NEXT_PUBLIC_API_URL=https://hacknex-obsidian.onrender.com
+// Order Item
+export interface OrderItemDTO {
+  id?: string | number;
+  productId?: string | number | null;
+  name?: string;
+  productName?: string;
+  quantity: number;
+  unitPrice?: number;
+  price?: number;
+  emoji?: string;
+  image?: string | null;
+}
 
-# Optional: Supabase Direct Storage Integration (if uploading from client)
-NEXT_PUBLIC_SUPABASE_URL=https://<your-project-ref>.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<your-supabase-anon-key>
+// Order (Frontend Model)
+export interface FrontendOrderDTO {
+  id: number; // Client-facing numeric identifier
+  backendId?: string; // PostgreSQL BigSerial
+  client_id?: number | null;
+  storeId?: string;
+  customerName: string;
+  customerEmail?: string | null;
+  customerPhone?: string | null;
+  customerAddress?: string | null;
+  paymentMethod?: string | null;
+  productName: string;
+  quantity: number;
+  total: number;
+  totalPrice?: number;
+  status: 'pending' | 'processing' | 'completed' | 'cancelled';
+  date: string; // Valid ISO-8601 string
+  orderDate?: string;
+  items?: OrderItemDTO[];
+}
 ```
 
 --------------------------------------------------------------------------------
-8. SCRIPTS & COMMANDS REFERENCE
+7. LOCALSTORAGE CONTRACTS & OFFLINE RESILIENCY
 --------------------------------------------------------------------------------
-- Install Dependencies:
+LocalStorage is used purely as an offline fallback cache and UI state persist layer.
+The backend PostgreSQL database remains the absolute source of truth.
+
+| Storage Key            | Schema / Type    | Purpose & Invalidation Rules                              |
+| :--------------------- | :--------------- | :-------------------------------------------------------- |
+| `obsidian_token`       | String           | Supabase access token (cleared on logout)                 |
+| `obsidian_session`     | JSON Object      | Session envelope: `{ access_token, user }`                |
+| `obsidian_store`       | JSON (StoreDTO)  | Active store settings; refreshed via `/api/account/state` |
+| `obsidian_products`    | JSON (Array)     | Catalog cache; synced via `/api/account/state` or SSE     |
+| `obsidian_orders`      | JSON (Array)     | Orders cache; updated via `/api/account/state` or SSE     |
+| `obsidian_cart_[slug]` | JSON (Array)     | Per-store shopping bag state (isolated by store slug)     |
+
+--------------------------------------------------------------------------------
+8. SECURITY CONSTRAINTS & ZERO-SECRET EXPOSURE
+--------------------------------------------------------------------------------
+1. Secrets:
+   - NEVER include `SUPABASE_SERVICE_ROLE_KEY` in frontend source code or bundles.
+   - NEVER expose `VERCEL_API_TOKEN` or `GOOGLE_MAPS_API_KEY` to client components.
+2. Cross-User Isolation:
+   - Merchant endpoints check store ownership against `auth.uid()`.
+   - Any attempt to modify another user's store returns `403 Forbidden`.
+3. Sanitized Logs:
+   - Do not log user passwords, tokens, or payment details in console output.
+
+--------------------------------------------------------------------------------
+9. FRONTEND ENVIRONMENT CONFIGURATION (.env.local)
+--------------------------------------------------------------------------------
+```env
+# Backend API Base URL
+# Development (Local Backend):
+NEXT_PUBLIC_BACKEND_URL=http://localhost:4000
+NEXT_PUBLIC_API_URL=http://localhost:4000
+
+# Production (Render / Cloud Backend):
+# NEXT_PUBLIC_BACKEND_URL=https://obsidian-backend-1.onrender.com
+# NEXT_PUBLIC_API_URL=https://obsidian-backend-1.onrender.com
+
+# Optional: Supabase Direct Browser Client (Public Anon Key ONLY)
+NEXT_PUBLIC_SUPABASE_URL=https://uohgqthlyjshbnhfuzed.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvaGdxdGhseWpzaGJuaGZ1emVkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0OTc2OTEsImV4cCI6MjA4OTA3MzY5MX0.HkW8U...
+```
+
+--------------------------------------------------------------------------------
+10. VERIFICATION & RUNNING INSTRUCTIONS
+--------------------------------------------------------------------------------
+- Install dependencies:
   `npm install`
-- Start Turbopack Dev Server (Default port 3000):
+- Start local development server (Port 3000):
   `npm run dev`
-- Run TypeScript Static Analysis:
+- Run TypeScript type checks:
   `npx tsc --noEmit`
-- Production Build:
+- Production build:
   `npm run build`
-- Production Server:
+- Start production server:
   `npm run start`
-- Run ESLint:
-  `npm run lint`
 
 ================================================================================
 END OF SPECIFICATION
