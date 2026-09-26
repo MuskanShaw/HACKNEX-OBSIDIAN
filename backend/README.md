@@ -69,11 +69,20 @@ VERCEL_TEAM_ID=
 VERCEL_PROJECT_BASE_DOMAIN=obsidian.store
 # Google Maps Platform Integration
 GOOGLE_MAPS_API_KEY=your_google_maps_api_key_never_expose_to_client
+
+# Google Gemini AI Integration
+GEMINI_API_KEY=your_gemini_api_key_never_expose_to_client
+GEMINI_MODEL=gemini-3.5-flash-lite
 ```
 
 ---
 
 ## API Endpoints Reference
+
+### AI Chatbot (Google Gemini)
+- `POST /api/chat` — Core AI Storefront Assistant endpoint grounded in authenticated user's store and product catalog. *(Auth required)*
+- `GET /api/chat/conversations` — Lists user's ongoing chat conversation sessions. *(Auth required)*
+- `GET /api/chat/conversations/:id/messages` — Retrieves message history for a specific conversation. *(Auth required, ownership verified)*
 
 ### Authentication
 - `POST /api/auth/sync` — Resolves Supabase Auth JWT token to database user profile. *(Auth required)*

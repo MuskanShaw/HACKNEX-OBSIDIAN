@@ -19,8 +19,10 @@ import accountRoutes from './routes/account.routes.js';
 import analyticsRoutes from './routes/analytics.routes.js';
 import mapsRoutes from './routes/maps.routes.js';
 import realtimeRoutes from './routes/realtime.routes.js';
+import chatRoutes from './routes/chat.routes.js';
 
 import { getSupabaseClient, isLiveSupabaseConfigured } from './services/supabase.js';
+import { geminiService } from './services/geminiService.js';
 
 export function createApp(): Express {
   const app = express();
@@ -116,6 +118,7 @@ export function createApp(): Express {
     res.status(200).json({
       status: 'ok',
       service: 'obsidian-backend',
+      ai: geminiService.isConfigured() ? 'configured' : 'not_configured',
       timestamp: new Date().toISOString(),
       environment: env.NODE_ENV,
     });
@@ -169,6 +172,7 @@ export function createApp(): Express {
   app.use('/api/stores', storeRoutes);
   app.use('/api/templates', templateRoutes);
   app.use('/api/public', publicRoutes);
+  app.use('/api/chat', chatRoutes);
   // Swagger API Documentation & Specification Aliases
   app.use('/api/docs', docsRoutes);
   app.use('/docs', docsRoutes);

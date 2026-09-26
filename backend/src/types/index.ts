@@ -442,3 +442,31 @@ export function toFrontendStore(store: StoreRecord): FrontendStoreDTO {
     updatedAt: store.updated_at,
   };
 }
+
+export interface ChatConversationRecord {
+  id: string;
+  user_id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ChatMessageRecord {
+  id: string;
+  conversation_id: string;
+  user_id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  created_at: string;
+}
+
+export interface ChatRequestDTO {
+  message: string;
+  conversation_id?: string;
+}
+
+export interface ChatResponseDTO {
+  reply: string;
+  conversation_id: string;
+}
+

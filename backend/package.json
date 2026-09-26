@@ -7,7 +7,8 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "dev": "tsx watch src/server.ts",
-    "test": "tsx test/api.test.ts"
+    "test": "tsx test/api.test.ts",
+    "test:chat": "tsx test/chat.test.ts"
   },
   "keywords": [
     "obsidian",
@@ -21,6 +22,7 @@
   "author": "OBSIDIAN Engineering",
   "license": "MIT",
   "dependencies": {
+    "@google/genai": "^2.24.0",
     "@supabase/supabase-js": "^2.49.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",

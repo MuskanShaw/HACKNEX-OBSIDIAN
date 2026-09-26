@@ -49,6 +49,7 @@ export const swaggerSpec = {
     { name: 'Deployments', description: 'Vercel storefront compilation and live deployment orchestration' },
     { name: 'Templates', description: 'Design template catalog' },
     { name: 'Public', description: 'Public storefront data for live site rendering' },
+    { name: 'AI Chatbot', description: 'Storefront AI Assistant powered by Google Gemini with user store context' },
   ],
   components: {
     securitySchemes: {
@@ -71,9 +72,43 @@ export const swaggerSpec = {
         properties: {
           status: { type: 'string', example: 'ok' },
           service: { type: 'string', example: 'obsidian-backend' },
+          ai: { type: 'string', example: 'configured' },
           database: { type: 'string', enum: ['connected', 'disconnected', 'error'], example: 'connected' },
           timestamp: { type: 'string', format: 'date-time' },
           environment: { type: 'string', example: 'development' },
+        },
+      },
+      ChatRequest: {
+        type: 'object',
+        required: ['message'],
+        properties: {
+          message: {
+            type: 'string',
+            description: 'User prompt or inquiry for the AI Storefront assistant',
+            example: 'What products are in my store?',
+          },
+          conversation_id: {
+            type: 'string',
+            format: 'uuid',
+            description: 'Optional conversation ID to maintain continuous session history',
+            example: 'c1234567-89ab-cdef-0123-456789abcdef',
+          },
+        },
+      },
+      ChatResponse: {
+        type: 'object',
+        properties: {
+          reply: {
+            type: 'string',
+            description: 'AI-generated response from Google Gemini',
+            example: 'You have 3 products listed in your store: Premium Jacket, Silk Shirt, and Classic Denim.',
+          },
+          conversation_id: {
+            type: 'string',
+            format: 'uuid',
+            description: 'UUID identifier of the ongoing conversation session',
+            example: 'c1234567-89ab-cdef-0123-456789abcdef',
+          },
         },
       },
       RootServiceResponse: {
@@ -339,6 +374,73 @@ export const swaggerSpec = {
             description: 'Backend is healthy',
             content: { 'application/json': { schema: { $ref: '#/components/schemas/HealthResponse' } } },
           },
+        },
+      },
+    },
+    '/api/chat': {
+      post: {
+        tags: ['AI Chatbot'],
+        summary: 'Send message to AI Storefront Chatbot (Google Gemini)',
+        description: 'Authenticates user via Supabase JWT, retrieves user store catalog context, persists conversation history, and invokes Google Gemini.',
+        security: [{ BearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/ChatRequest' },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: 'Chat response generated successfully',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/ChatResponse' },
+              },
+            },
+          },
+          400: { description: 'Invalid request or empty message' },
+          401: { description: 'Unauthorized: missing or invalid Supabase access token' },
+          403: { description: 'Forbidden: conversation does not belong to authenticated user' },
+          404: { description: 'Not Found: conversation does not exist' },
+          429: { description: 'Rate limit exceeded: too many chat messages' },
+          502: { description: 'AI Service Error: Gemini API temporarily unavailable' },
+        },
+      },
+    },
+    '/api/chat/conversations': {
+      get: {
+        tags: ['AI Chatbot'],
+        summary: 'List user conversations',
+        description: 'Returns all chat conversations belonging strictly to the authenticated user.',
+        security: [{ BearerAuth: [] }],
+        responses: {
+          200: { description: 'List of conversations' },
+          401: { description: 'Unauthorized' },
+        },
+      },
+    },
+    '/api/chat/conversations/{id}/messages': {
+      get: {
+        tags: ['AI Chatbot'],
+        summary: 'Get conversation message history',
+        description: 'Retrieves all messages for a specific conversation belonging to the authenticated user.',
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', format: 'uuid' },
+            description: 'Conversation ID',
+          },
+        ],
+        responses: {
+          200: { description: 'Conversation messages' },
+          401: { description: 'Unauthorized' },
+          403: { description: 'Forbidden: conversation does not belong to user' },
+          404: { description: 'Conversation not found' },
         },
       },
     },

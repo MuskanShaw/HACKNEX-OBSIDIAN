@@ -7,6 +7,8 @@ import {
   ProductRecord,
   OrderRecord,
   DeploymentRecord,
+  ChatConversationRecord,
+  ChatMessageRecord,
   generateNumericId,
 } from '../types/index.js';
 import { extractAndNormalizeOrderTimestamp } from '../utils/dateUtils.js';
@@ -17,6 +19,8 @@ const testMemStores: Map<string, StoreRecord> = new Map();
 const testMemProducts: Map<string, ProductRecord> = new Map();
 const testMemOrders: Map<string, OrderRecord> = new Map();
 const testMemDeployments: Map<string, DeploymentRecord> = new Map();
+const testMemConversations: Map<string, ChatConversationRecord> = new Map();
+const testMemMessages: Map<string, ChatMessageRecord> = new Map();
 
 function useTestMemory(): boolean {
   return process.env.NODE_ENV === 'test' && !isLiveSupabaseConfigured();
@@ -1525,5 +1529,233 @@ export const dataStore = {
       return deps[0] || null;
     }
     return null;
+  },
+
+  // ==========================================
+  // Chat Conversations & Messages Data Methods
+  // ==========================================
+  async createChatConversation(userId: string, title?: string): Promise<ChatConversationRecord> {
+    const id = randomUUID();
+    const resolvedTitle = (title || 'New Conversation').trim();
+    const now = new Date().toISOString();
+
+    if (isLiveSupabaseConfigured()) {
+      try {
+        const client = getSupabaseClient();
+        const { data, error } = await client
+          .from('chat_conversations')
+          .insert({
+            id,
+            user_id: userId,
+            title: resolvedTitle,
+          })
+          .select()
+          .single();
+
+        if (!error && data) {
+          return data as ChatConversationRecord;
+        }
+        if (error && error.code !== 'PGRST205' && error.code !== '42P01') {
+          console.warn('[DataStore] Supabase chat_conversations insert error:', error.message);
+        }
+      } catch (err: any) {
+        console.warn('[DataStore] Exception saving chat conversation to Supabase:', err.message);
+      }
+    }
+
+    const conv: ChatConversationRecord = {
+      id,
+      user_id: userId,
+      title: resolvedTitle,
+      created_at: now,
+      updated_at: now,
+    };
+    testMemConversations.set(id, conv);
+    return conv;
+  },
+
+  async getChatConversationById(conversationId: string, userId: string): Promise<ChatConversationRecord | null> {
+    if (isLiveSupabaseConfigured()) {
+      try {
+        const client = getSupabaseClient();
+        const { data, error } = await client
+          .from('chat_conversations')
+          .select('*')
+          .eq('id', conversationId)
+          .eq('user_id', userId)
+          .maybeSingle();
+
+        if (!error && data) {
+          return data as ChatConversationRecord;
+        }
+      } catch (err: any) {
+        console.warn('[DataStore] Exception fetching conversation from Supabase:', err.message);
+      }
+    }
+
+    const conv = testMemConversations.get(conversationId);
+    if (conv && conv.user_id === userId) {
+      return conv;
+    }
+    return null;
+  },
+
+  async getChatConversationAnyUser(conversationId: string): Promise<ChatConversationRecord | null> {
+    if (isLiveSupabaseConfigured()) {
+      try {
+        const client = getSupabaseClient();
+        const { data, error } = await client
+          .from('chat_conversations')
+          .select('*')
+          .eq('id', conversationId)
+          .maybeSingle();
+
+        if (!error && data) {
+          return data as ChatConversationRecord;
+        }
+      } catch (err: any) {
+        console.warn('[DataStore] Exception checking conversation across users in Supabase:', err.message);
+      }
+    }
+
+    return testMemConversations.get(conversationId) || null;
+  },
+
+  async getChatConversationsByUserId(userId: string): Promise<ChatConversationRecord[]> {
+    if (isLiveSupabaseConfigured()) {
+      try {
+        const client = getSupabaseClient();
+        const { data, error } = await client
+          .from('chat_conversations')
+          .select('*')
+          .eq('user_id', userId)
+          .order('updated_at', { ascending: false });
+
+        if (!error && data) {
+          return data as ChatConversationRecord[];
+        }
+      } catch (err: any) {
+        console.warn('[DataStore] Exception fetching conversations by user in Supabase:', err.message);
+      }
+    }
+
+    return Array.from(testMemConversations.values())
+      .filter((c) => c.user_id === userId)
+      .sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''));
+  },
+
+  async updateChatConversationTitle(conversationId: string, userId: string, title: string): Promise<ChatConversationRecord | null> {
+    const trimmedTitle = title.trim();
+    if (isLiveSupabaseConfigured()) {
+      try {
+        const client = getSupabaseClient();
+        const { data, error } = await client
+          .from('chat_conversations')
+          .update({ title: trimmedTitle, updated_at: new Date().toISOString() })
+          .eq('id', conversationId)
+          .eq('user_id', userId)
+          .select()
+          .maybeSingle();
+
+        if (!error && data) {
+          return data as ChatConversationRecord;
+        }
+      } catch (err: any) {
+        console.warn('[DataStore] Exception updating conversation title in Supabase:', err.message);
+      }
+    }
+
+    const conv = testMemConversations.get(conversationId);
+    if (conv && conv.user_id === userId) {
+      conv.title = trimmedTitle;
+      conv.updated_at = new Date().toISOString();
+      return conv;
+    }
+    return null;
+  },
+
+  async addChatMessage(
+    conversationId: string,
+    userId: string,
+    role: 'user' | 'assistant',
+    content: string
+  ): Promise<ChatMessageRecord> {
+    const id = randomUUID();
+    const now = new Date().toISOString();
+
+    if (isLiveSupabaseConfigured()) {
+      try {
+        const client = getSupabaseClient();
+        const { data, error } = await client
+          .from('chat_messages')
+          .insert({
+            id,
+            conversation_id: conversationId,
+            user_id: userId,
+            role,
+            content,
+          })
+          .select()
+          .single();
+
+        await client
+          .from('chat_conversations')
+          .update({ updated_at: now })
+          .eq('id', conversationId);
+
+        if (!error && data) {
+          return data as ChatMessageRecord;
+        }
+      } catch (err: any) {
+        console.warn('[DataStore] Exception inserting chat message to Supabase:', err.message);
+      }
+    }
+
+    const msg: ChatMessageRecord = {
+      id,
+      conversation_id: conversationId,
+      user_id: userId,
+      role,
+      content,
+      created_at: now,
+    };
+    testMemMessages.set(id, msg);
+
+    const conv = testMemConversations.get(conversationId);
+    if (conv) {
+      conv.updated_at = now;
+    }
+
+    return msg;
+  },
+
+  async getChatMessages(
+    conversationId: string,
+    userId: string,
+    limit: number = 20
+  ): Promise<ChatMessageRecord[]> {
+    if (isLiveSupabaseConfigured()) {
+      try {
+        const client = getSupabaseClient();
+        const { data, error } = await client
+          .from('chat_messages')
+          .select('*')
+          .eq('conversation_id', conversationId)
+          .eq('user_id', userId)
+          .order('created_at', { ascending: true })
+          .limit(limit);
+
+        if (!error && data) {
+          return data as ChatMessageRecord[];
+        }
+      } catch (err: any) {
+        console.warn('[DataStore] Exception fetching chat messages from Supabase:', err.message);
+      }
+    }
+
+    return Array.from(testMemMessages.values())
+      .filter((m) => m.conversation_id === conversationId && m.user_id === userId)
+      .sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''))
+      .slice(-limit);
   },
 };

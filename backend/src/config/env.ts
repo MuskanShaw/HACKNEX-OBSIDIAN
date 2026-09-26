@@ -25,6 +25,10 @@ const envSchema = z.object({
 
   // Google Maps Integration
   GOOGLE_MAPS_API_KEY: z.string().optional().default(''),
+
+  // Google Gemini AI Integration
+  GEMINI_API_KEY: z.string().optional().default(''),
+  GEMINI_MODEL: z.string().optional().default('gemini-3.5-flash-lite'),
 });
 
 const parsedEnv = envSchema.safeParse(process.env);
