@@ -6,7 +6,7 @@ dotenv.config();
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.coerce.number().default(4000),
-  ALLOWED_ORIGIN: z.string().default('https://hacknex-obsidian06.onrender.com,https://obsidian-alpha-wheat.vercel.app,http://localhost:3000,http://localhost:5173'),
+  ALLOWED_ORIGIN: z.string().default('https://hacknex-obsidian06.vercel.app,https://hacknex-obsidian06.onrender.com,https://obsidian-alpha-wheat.vercel.app,http://localhost:3000,http://localhost:5173'),
 
 
   // Supabase Configuration

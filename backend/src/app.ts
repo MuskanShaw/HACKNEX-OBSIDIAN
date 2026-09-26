@@ -48,6 +48,7 @@ export function createApp(): Express {
     .filter(Boolean);
 
   const defaultOrigins = [
+    'https://hacknex-obsidian06.vercel.app',
     'https://hacknex-obsidian06.onrender.com',
     'https://obsidian-alpha-wheat.vercel.app',
     'http://localhost:5173',

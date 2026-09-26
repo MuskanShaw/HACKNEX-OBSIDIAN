@@ -11,7 +11,7 @@ export const swaggerSpec = {
       'Production-grade RESTful backend API service for the OBSIDIAN digital architectural storefront platform. Supports store creation, product management, customer orders, and automated Vercel deployment orchestration.',
     contact: {
       name: 'OBSIDIAN Support',
-      url: 'https://obsidian-alpha-wheat.vercel.app',
+      url: 'https://hacknex-obsidian06.vercel.app',
     },
   },
   servers: [
@@ -20,12 +20,12 @@ export const swaggerSpec = {
       description: 'Current Origin (Auto)',
     },
     {
-      url: 'https://hacknex-obsidian.onrender.com',
+      url: 'https://hacknex-obsidian06.onrender.com',
       description: 'Production Backend (Render)',
     },
     {
-      url: 'https://obsidian-alpha-wheat.vercel.app',
-      description: 'Production Frontend Proxy (Vercel)',
+      url: 'https://hacknex-obsidian06.vercel.app',
+      description: 'Production Frontend (Vercel)',
     },
     {
       url: 'http://localhost:4000',
@@ -1659,7 +1659,7 @@ router.get('/', (_req, res) => {
     <div class="top-links">
       <a href="/health" target="_blank">Health Check</a>
       <a href="/api/docs/swagger.json" target="_blank">Raw JSON Spec</a>
-      <a href="https://obsidian-alpha-wheat.vercel.app" target="_blank">Vercel Storefront ↗</a>
+      <a href="https://hacknex-obsidian06.vercel.app" target="_blank">Vercel Storefront ↗</a>
     </div>
   </div>
   <div id="swagger-ui"></div>

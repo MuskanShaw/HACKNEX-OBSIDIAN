@@ -9,9 +9,9 @@ services:
       - key: NODE_ENV
         value: production
       - key: NEXT_PUBLIC_BACKEND_URL
-        value: https://hacknex-obsidian.onrender.com
+        value: https://hacknex-obsidian06.onrender.com
       - key: NEXT_PUBLIC_API_URL
-        value: https://hacknex-obsidian.onrender.com
+        value: https://hacknex-obsidian06.onrender.com
       - key: NEXT_PUBLIC_SUPABASE_URL
         value: https://vrgendezcvpzjuhcuhfo.supabase.co
       - key: NEXT_PUBLIC_SUPABASE_ANON_KEY

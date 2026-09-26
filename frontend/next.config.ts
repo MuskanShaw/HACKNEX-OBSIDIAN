@@ -3,7 +3,7 @@ import type { NextConfig } from "next";
 const BACKEND_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL ||
   process.env.NEXT_PUBLIC_API_URL ||
-  "https://hacknex-obsidian.onrender.com";
+  "https://hacknex-obsidian06.onrender.com";
 
 const nextConfig: NextConfig = {
   reactStrictMode: false,

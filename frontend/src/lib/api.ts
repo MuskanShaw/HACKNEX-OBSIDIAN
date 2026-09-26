@@ -1,6 +1,6 @@
 /**
  * OBSIDIAN API Client
- * Configured for https://hacknex-obsidian.onrender.com
+ * Configured for https://hacknex-obsidian06.onrender.com
  */
 
 import { supabase } from "./supabase";
@@ -8,7 +8,7 @@ import { supabase } from "./supabase";
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL ||
   process.env.NEXT_PUBLIC_API_URL ||
-  "https://hacknex-obsidian.onrender.com";
+  "https://hacknex-obsidian06.onrender.com";
 
 // Safe development logging for debugging API target
 if (typeof window !== "undefined" && process.env.NODE_ENV !== "production") {
